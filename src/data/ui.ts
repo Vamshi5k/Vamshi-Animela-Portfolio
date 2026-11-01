@@ -7,4 +7,8 @@ export const ui: UiCopy = {
   pending: "PENDING",
   pendingWhat: { screenshot: "SCREENSHOT" },
   figure: "FIG.",
+  menuOpen: "MENU",
+  menuClose: "CLOSE",
+  primaryNav: "Primary",
+  menuDialog: "Site menu",
 };

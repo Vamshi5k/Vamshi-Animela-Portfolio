@@ -205,6 +205,13 @@
    --------------------------------------------------------------------------- */
 
 @layer base {
+  /* Smooth in-page anchor scrolling, only when motion is allowed. Sections offset by the bar height. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   body {
     background: var(--color-bg);
     color: var(--color-text);
@@ -223,6 +230,11 @@
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 3px;
+  }
+
+  /* Sections focused programmatically after in-page navigation are not controls: no ring. */
+  section[tabindex="-1"]:focus {
+    outline: none;
   }
 
   /* Elements animated in by JS start hidden only when scripting is on,

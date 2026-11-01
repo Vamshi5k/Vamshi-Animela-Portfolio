@@ -14,7 +14,8 @@
     "content:todos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/content-todos.mjs",
     "content:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/content-todos.mjs --strict",
     "shots": "node scripts/shots.mjs",
-    "shots:prod": "node scripts/shots-prod.mjs"
+    "shots:prod": "node scripts/shots-prod.mjs",
+    "nav:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/nav-check.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

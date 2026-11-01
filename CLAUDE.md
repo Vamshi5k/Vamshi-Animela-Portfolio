@@ -65,6 +65,7 @@ Components must hide an element whose optional value is null: no empty link, no 
 ## TODO
 
 - Replace the default Next.js favicon (`src/app/favicon.ico`) once a real icon exists.
+- Scroll lock (overflow hidden on html) must be tested on a real iPhone before launch; if it fails, switch to a position-fixed body lock that restores scroll position.
 - Remove or block `/dev/design-system` (`src/app/dev/`, `src/data/devDesignSystem.ts`) before launch (Prompt 20). It renders in production builds so `shots:prod` can capture it, and is `noindex` only.
 
 ## RULES

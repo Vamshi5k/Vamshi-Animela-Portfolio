@@ -150,6 +150,12 @@ export type UiCopy = {
   readonly pendingWhat: { readonly screenshot: string };
   /** Figure caption prefix: "FIG. 00". */
   readonly figure: string;
+  /** Mobile menu toggle labels. */
+  readonly menuOpen: string;
+  readonly menuClose: string;
+  /** Accessible names for the primary nav landmark and the mobile menu dialog. */
+  readonly primaryNav: string;
+  readonly menuDialog: string;
 };
 
 // sections.ts

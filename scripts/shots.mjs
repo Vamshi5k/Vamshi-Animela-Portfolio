@@ -29,19 +29,25 @@ const outDir = path.resolve(
   `${stamp}${reduced ? "-reduced" : ""}`,
 );
 
-/** Scroll top to bottom in steps so scroll-triggered content reveals, then return to the top. */
+/**
+ * Scroll top to bottom in steps so scroll-triggered content reveals, then return to the top.
+ * Scrolls are instant: the site sets `scroll-behavior: smooth`, which would otherwise make these
+ * scripted scrolls animated and the final position timing-dependent. The last wait lets the
+ * header's show transition finish.
+ */
 async function scrollThrough(page) {
   await page.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const to = (top) => window.scrollTo({ top, behavior: "instant" });
     const step = Math.max(1, Math.floor(window.innerHeight * 0.75));
     for (let y = 0, i = 0; y < document.documentElement.scrollHeight && i < 200; y += step, i++) {
-      window.scrollTo(0, y);
+      to(y);
       await wait(120);
     }
-    window.scrollTo(0, document.documentElement.scrollHeight);
+    to(document.documentElement.scrollHeight);
     await wait(300);
-    window.scrollTo(0, 0);
-    await wait(300);
+    to(0);
+    await wait(700);
   });
 }
 
@@ -89,7 +95,9 @@ async function findOverflow(page) {
 }
 
 await mkdir(outDir, { recursive: true });
-const browser = await chromium.launch();
+// Greyscale text antialiasing: Windows Chromium otherwise renders LCD (ClearType) colour fringes that
+// phones never show and that vary per layer, which makes captures misleading and non-comparable.
+const browser = await chromium.launch({ args: ["--disable-lcd-text"] });
 let failures = 0;
 
 try {
