@@ -114,6 +114,7 @@ export type Client = {
   readonly category: Content<string>;
   readonly contribution: Content<string>;
   readonly tech: Content<readonly string[]>;
+  /** Optional. When null (or not verified), hide the link entirely. */
   readonly liveUrl: string | null;
   /** Only render `liveUrl` as a link when this is true. */
   readonly urlVerified: boolean;
@@ -143,6 +144,6 @@ export type Education = {
 export type Contact = {
   readonly email: string;
   readonly socials: readonly Link[];
-  /** E.164 format when provided. */
+  /** Optional, E.164 format when provided. When null, hide every WhatsApp element. */
   readonly whatsapp: string | null;
 };

@@ -1,12 +1,34 @@
 // Lists every TODO, null and empty-array field in src/data so missing content is visible.
 // Data files are loaded directly via Node's built-in TypeScript type stripping.
-// --strict: exit 1 if any TODO or null field remains (launch gate). Empty arrays are reported only.
+// Rules: a { todo } always fails; a null or empty array fails unless its path is declared
+// in content-optional.mjs. --strict: exit 1 on any failure (launch gate).
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { optionalPaths } from "./content-optional.mjs";
 
 const strict = process.argv.includes("--strict");
 const dataDir = path.resolve(import.meta.dirname, "../src/data");
+
+const optional = optionalPaths.map((o) => ({
+  ...o,
+  regex: new RegExp(
+    `^${o.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\[\\\*\\\]/g, "\\[[^\\]]+\\]")}$`,
+  ),
+  matched: false,
+}));
+
+/** Returns the optional rule for a path, and records which rules matched any field at all. */
+function optionalRule(at) {
+  let rule;
+  for (const o of optional) {
+    if (o.regex.test(at)) {
+      o.matched = true;
+      rule ??= o;
+    }
+  }
+  return rule;
+}
 
 const isTodo = (v) =>
   typeof v === "object" && v !== null && Object.keys(v).length === 1 && typeof v.todo === "string";
@@ -15,19 +37,33 @@ const isTodo = (v) =>
 const itemKey = (item, i) =>
   (item && typeof item === "object" && (item.slug ?? item.id ?? item.name ?? item.company ?? item.title)) || i;
 
+function gap(at, value) {
+  const rule = optionalRule(at);
+  const what = value === null ? "null" : "empty";
+  return rule
+    ? { at, kind: "optional, OK", note: `${what}: ${rule.reason}` }
+    : { at, kind: "missing", note: `${what}, required` };
+}
+
 function walk(value, at, out) {
-  if (isTodo(value)) out.push({ at, kind: "TODO", note: value.todo });
-  else if (value === null) out.push({ at, kind: "null", note: "" });
+  if (isTodo(value)) {
+    optionalRule(at);
+    out.push({ at, kind: "TODO", note: value.todo });
+  } else if (value === null) out.push(gap(at, value));
   else if (Array.isArray(value)) {
-    if (value.length === 0) out.push({ at, kind: "empty", note: "" });
+    if (value.length === 0) out.push(gap(at, value));
+    else optionalRule(at);
     value.forEach((item, i) => walk(item, `${at}[${itemKey(item, i)}]`, out));
-  } else if (typeof value === "object") {
-    for (const [k, v] of Object.entries(value)) walk(v, `${at}.${k}`, out);
+  } else {
+    optionalRule(at);
+    if (typeof value === "object") {
+      for (const [k, v] of Object.entries(value)) walk(v, `${at}.${k}`, out);
+    }
   }
 }
 
 const files = (await readdir(dataDir)).filter((f) => f.endsWith(".ts") && f !== "types.ts").sort();
-const counts = { TODO: 0, null: 0, empty: 0 };
+const counts = { TODO: 0, missing: 0, "optional, OK": 0 };
 
 for (const file of files) {
   const mod = await import(pathToFileURL(path.join(dataDir, file)).href);
@@ -39,13 +75,19 @@ for (const file of files) {
   const width = Math.max(...found.map((f) => f.at.length));
   for (const { at, kind, note } of found) {
     counts[kind]++;
-    console.log(`  ${at.padEnd(width)}  ${kind.padEnd(5)}  ${note}`);
+    console.log(`  ${at.padEnd(width)}  ${kind.padEnd(12)}  ${note}`);
   }
 }
 
-console.log(`\n${counts.TODO} TODO, ${counts.null} null, ${counts.empty} empty`);
+for (const o of optional) {
+  if (!o.matched) console.warn(`\nwarning: optional pattern "${o.pattern}" matches no field`);
+}
 
-if (strict && counts.TODO + counts.null > 0) {
-  console.error("content:check failed: TODO or null fields remain.");
+console.log(
+  `\n${counts.TODO} TODO, ${counts.missing} missing required, ${counts["optional, OK"]} optional left empty`,
+);
+
+if (strict && counts.TODO + counts.missing > 0) {
+  console.error("content:check failed: TODO or missing required fields remain.");
   process.exitCode = 1;
 }

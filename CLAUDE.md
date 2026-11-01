@@ -20,7 +20,11 @@ See also @AGENTS.md: this is Next.js 16. Read the relevant guide in `node_module
 - `npm run lint`: `eslint`
 - `npm run build`: `next build`
 - `npm run content:todos`: report every TODO, null and empty field in `src/data` (always exits 0)
-- `npm run content:check`: same report with `--strict`; exits 1 if any TODO or null field remains (launch gate)
+- `npm run content:check`: same report with `--strict`; exits 1 on any TODO or missing required field (launch gate)
+
+Content gate rules: a `{ todo }` value always fails. A null or empty array fails unless its path is declared optional in `scripts/content-optional.mjs`, the only place optional fields are declared. Do not add entries there without approval.
+
+Components must hide an element whose optional value is null: no empty link, no dead button, no placeholder for it.
 
 `scripts/content-todos.mjs` relies on Node running `.ts` files directly (built-in type stripping, Node >= 24, see `engines` in `package.json`). Data files in `src/data` must therefore only use `import type` from other modules and only erasable TypeScript syntax (no enums, namespaces or parameter properties).
 
