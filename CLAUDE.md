@@ -54,9 +54,18 @@ Components must hide an element whose optional value is null: no empty link, no 
 - AGENTS.md is rewritten by next dev because of experimental.agentFeedback. Do not hand-edit AGENTS.md and do not commit incidental changes to it unless I ask.
 - Keep the existing next.config.ts flags (`cacheComponents`, `partialPrefetching`, `experimental.agentFeedback`).
 
+## Design system
+
+- Spec: `design/SPEC.md`. Tokens: `src/app/globals.css` (`@theme`); type recipes are `type-*` utilities, grid is `layout-grid`.
+- Motion tokens live in both `src/lib/motion-tokens.ts` (GSAP) and `globals.css` (`--duration-*`, `--ease-*`); keep them in sync. `/dev/design-system` flags mismatches.
+- Fonts: `src/lib/fonts.ts` (Archivo with wdth, Instrument Sans wght only, IBM Plex Mono 400/500; latin). Archivo width is set with `font-stretch` (62%–125%).
+- Width-axis rule: animate Archivo's width only on large display text (Display M or larger) inside a fixed-size container sized for the widest state. Never on body text, labels or wrapping text. Static on touch and under prefers-reduced-motion. Currently used only for the Contact email hover.
+- Elements animated in by JS carry `data-reveal`; CSS hides them only when scripting is enabled and motion is allowed.
+
 ## TODO
 
 - Replace the default Next.js favicon (`src/app/favicon.ico`) once a real icon exists.
+- Remove or block `/dev/design-system` (`src/app/dev/`, `src/data/devDesignSystem.ts`) before launch (Prompt 20). It renders in production builds so `shots:prod` can capture it, and is `noindex` only.
 
 ## RULES
 

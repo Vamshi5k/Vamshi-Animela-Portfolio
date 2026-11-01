@@ -1,5 +1,5 @@
 // Full-page screenshots plus a horizontal overflow check at each target width.
-// Usage: node scripts/shots.mjs [baseUrl] [--reduced]
+// Usage: node scripts/shots.mjs [baseUrl] [--reduced] [--paths=/,/dev/design-system]
 // Run it against a production build (npm run shots:prod), not next dev.
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -8,6 +8,11 @@ import { chromium } from "playwright";
 const args = process.argv.slice(2);
 const reduced = args.includes("--reduced");
 const baseUrl = args.find((a) => !a.startsWith("--")) ?? "http://localhost:3000";
+const pathsArg = args.find((a) => a.startsWith("--paths="));
+const paths = pathsArg ? pathsArg.slice("--paths=".length).split(",").filter(Boolean) : ["/"];
+
+/** "/" → "home", "/dev/design-system" → "dev-design-system". */
+const slug = (p) => p.replace(/^\/+|\/+$/g, "").replace(/[^a-z0-9]+/gi, "-") || "home";
 
 const viewports = [
   { width: 1440, height: 900 },
@@ -88,33 +93,36 @@ const browser = await chromium.launch();
 let failures = 0;
 
 try {
-  for (const { width, height, hasTouch = false, isMobile = false } of viewports) {
-    const context = await browser.newContext({
-      viewport: { width, height },
-      hasTouch,
-      isMobile,
-      reducedMotion: reduced ? "reduce" : "no-preference",
-    });
-    const page = await context.newPage();
-    await page.goto(baseUrl, { waitUntil: "networkidle" });
-    await page.evaluate(() => document.fonts.ready);
-    await scrollThrough(page);
-    await page.waitForLoadState("networkidle");
+  for (const route of paths) {
+    console.log(`\n${route}`);
+    for (const { width, height, hasTouch = false, isMobile = false } of viewports) {
+      const context = await browser.newContext({
+        viewport: { width, height },
+        hasTouch,
+        isMobile,
+        reducedMotion: reduced ? "reduce" : "no-preference",
+      });
+      const page = await context.newPage();
+      await page.goto(new URL(route, baseUrl).href, { waitUntil: "networkidle" });
+      await page.evaluate(() => document.fonts.ready);
+      await scrollThrough(page);
+      await page.waitForLoadState("networkidle");
 
-    const file = path.join(outDir, `${width}.png`);
-    await page.screenshot({ path: file, fullPage: true });
+      const file = path.join(outDir, `${slug(route)}-${width}.png`);
+      await page.screenshot({ path: file, fullPage: true });
 
-    const result = await findOverflow(page);
-    if (result.failed) {
-      failures++;
-      console.log(`FAIL ${width}px  scrollWidth ${result.scrollWidth} > clientWidth ${result.clientWidth}`);
-      for (const o of result.offenders) {
-        console.log(`       ${o.selector}  (width ${o.width}px, right edge ${o.right}px)`);
+      const result = await findOverflow(page);
+      if (result.failed) {
+        failures++;
+        console.log(`FAIL ${width}px  scrollWidth ${result.scrollWidth} > clientWidth ${result.clientWidth}`);
+        for (const o of result.offenders) {
+          console.log(`       ${o.selector}  (width ${o.width}px, right edge ${o.right}px)`);
+        }
+      } else {
+        console.log(`PASS ${width}px`);
       }
-    } else {
-      console.log(`PASS ${width}px`);
+      await context.close();
     }
-    await context.close();
   }
 } finally {
   await browser.close();

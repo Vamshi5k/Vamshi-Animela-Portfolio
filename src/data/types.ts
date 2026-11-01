@@ -139,6 +139,28 @@ export type Education = {
   readonly credentials: readonly Credential[];
 };
 
+// ui.ts
+
+export type UiCopy = {
+  readonly skipToContent: string;
+  readonly heroPrimary: string;
+  readonly heroSecondary: string;
+  /** Prefix of every pending placeholder: "PENDING — <what>". */
+  readonly pending: string;
+  readonly pendingWhat: { readonly screenshot: string };
+  /** Figure caption prefix: "FIG. 00". */
+  readonly figure: string;
+};
+
+// sections.ts
+
+export type SectionMeta = {
+  readonly id: string;
+  /** Rendered as §01, §02, … (SPEC §4.1). */
+  readonly index: number;
+  readonly label: string;
+};
+
 // contact.ts
 
 export type Contact = {

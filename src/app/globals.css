@@ -1,28 +1,247 @@
 @import "tailwindcss";
 
-@theme inline {
+/* ---------------------------------------------------------------------------
+   Design tokens (design/SPEC.md). Tailwind v4, CSS-first.
+   --------------------------------------------------------------------------- */
+
+@theme {
+  /* Colors: identity only. Default Tailwind palette removed. */
+  --color-*: initial;
   --color-bg: #090909;
   --color-surface: #171717;
   --color-text: #f2f0ea;
   --color-accent: #a5ff6b;
   --color-muted: #858585;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Text on accent fills. */
+  --color-accent-ink: #090909;
+  /* Hairline rules: text at 14% (SPEC §4.1). Decorative, not a text color. */
+  --color-rule: color-mix(in srgb, #f2f0ea 14%, transparent);
+
+  /* Breakpoints: 375 / 768 / 1024 (SPEC desktop grid) / 1280 / 1440. */
+  --breakpoint-*: initial;
+  --breakpoint-xs: 23.4375rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 90rem;
+
+  /* Spacing: 4px steps (p-2 = 8px, the SPEC rhythm unit). */
+  --spacing: 0.25rem;
+
+  /* Containers. */
+  --container-page: 90rem; /* 1440 including margins → 1344 content at desktop */
+  --container-measure: 60ch; /* long-form text */
+  --container-measure-narrow: 56ch;
+
+  /* Radii: square-cornered by default (SPEC §7). */
+  --radius-*: initial;
+  --radius-none: 0;
+
+  /* Fluid type scale (SPEC §3). */
+  --text-*: initial;
+  --text-display-xl: clamp(4.5rem, 15vw, 15rem);
+  --text-display-xl--line-height: 0.82;
+  --text-display-xl--letter-spacing: -0.01em;
+  --text-display-l: clamp(2.75rem, 7vw, 7rem);
+  --text-display-l--line-height: 0.9;
+  --text-display-l--letter-spacing: -0.01em;
+  --text-display-m: clamp(2rem, 4vw, 3.75rem);
+  --text-display-m--line-height: 1;
+  --text-display-m--letter-spacing: -0.005em;
+  --text-heading: clamp(1.375rem, 2vw, 1.75rem);
+  --text-heading--line-height: 1.2;
+  --text-body-l: clamp(1.125rem, 1.4vw, 1.375rem);
+  --text-body-l--line-height: 1.5;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-mono-s: 0.8125rem;
+  --text-mono-s--line-height: 1.4;
+  --text-mono-s--letter-spacing: 0.06em;
+  --text-mono-xs: 0.6875rem;
+  --text-mono-xs--line-height: 1.4;
+  --text-mono-xs--letter-spacing: 0.08em;
 }
 
+/* Fonts come from next/font CSS variables set on <html> (src/lib/fonts.ts). */
+@theme inline {
+  --font-*: initial;
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/* Motion tokens. Mirrors src/lib/motion-tokens.ts; keep both in sync.
+   `static` so the variables always exist for the runtime check in /dev/design-system. */
+@theme static {
+  --ease-*: initial;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --duration-instant: 120ms;
+  --duration-fast: 200ms;
+  --duration-base: 400ms;
+  --duration-slow: 700ms;
+  --duration-intro: 1400ms;
+}
+
+/* Layout variables that change per breakpoint (SPEC §1). */
 :root {
   color-scheme: dark;
+  --header-h: 3.5rem;
+  --margin: 1.25rem;
+  --gutter: 0.75rem;
+  --cols: 4;
+  --section-pad: 6rem;
 }
 
-body {
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+@media (width >= 48rem) {
+  :root {
+    --margin: 2rem;
+    --gutter: 1.25rem;
+    --cols: 8;
+    --section-pad: 7.5rem;
+  }
 }
 
-::selection {
-  background: var(--color-accent);
-  color: var(--color-bg);
+@media (width >= 64rem) {
+  :root {
+    --margin: 3rem;
+    --gutter: 1.5rem;
+    --cols: 12;
+    --section-pad: 10rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Composite type styles (SPEC §3 recipes). Width uses font-stretch, which maps
+   to Archivo's wdth axis. Override width with font-stretch-* utilities.
+   --------------------------------------------------------------------------- */
+
+@utility type-display-xl {
+  font-family: var(--font-display);
+  font-size: var(--text-display-xl);
+  line-height: var(--text-display-xl--line-height);
+  letter-spacing: var(--text-display-xl--letter-spacing);
+  font-weight: 800;
+  font-stretch: 62%;
+  text-transform: uppercase;
+}
+
+@utility type-display-l {
+  font-family: var(--font-display);
+  font-size: var(--text-display-l);
+  line-height: var(--text-display-l--line-height);
+  letter-spacing: var(--text-display-l--letter-spacing);
+  font-weight: 700;
+  font-stretch: 75%;
+}
+
+@utility type-display-m {
+  font-family: var(--font-display);
+  font-size: var(--text-display-m);
+  line-height: var(--text-display-m--line-height);
+  letter-spacing: var(--text-display-m--letter-spacing);
+  font-weight: 600;
+  font-stretch: 100%;
+}
+
+@utility type-heading {
+  font-family: var(--font-sans);
+  font-size: var(--text-heading);
+  line-height: var(--text-heading--line-height);
+  font-weight: 600;
+}
+
+@utility type-body-l {
+  font-family: var(--font-sans);
+  font-size: var(--text-body-l);
+  line-height: var(--text-body-l--line-height);
+  font-weight: 400;
+}
+
+@utility type-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: 400;
+}
+
+@utility type-mono-s {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-s);
+  line-height: var(--text-mono-s--line-height);
+  letter-spacing: var(--text-mono-s--letter-spacing);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+@utility type-mono-xs {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-xs);
+  line-height: var(--text-mono-xs--line-height);
+  letter-spacing: var(--text-mono-xs--letter-spacing);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+/* 4 / 8 / 12-column grid with the SPEC margins and gutters. */
+@utility layout-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  column-gap: var(--gutter);
+}
+
+/* Pending-content hatching (SPEC §4.4). Used only by PendingFrame. */
+@utility hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-rule) 0 1px,
+    transparent 1px 10px
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+   --------------------------------------------------------------------------- */
+
+@layer base {
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  /* Visible focus everywhere (accent on #090909 is 16:1). */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  /* Elements animated in by JS start hidden only when scripting is on,
+     so no-JS visitors and reduced-motion users always see content.
+     Failsafe: if GSAP has not taken over after 3s (JS failed or slow hydration), the element becomes
+     visible. On normal loads GSAP has already hidden the content by opacity or line masks, so this
+     visibility flip shows nothing; when it does fire first, TextReveal/Reveal skip their animation. */
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+    [data-reveal] {
+      visibility: hidden;
+      animation: reveal-failsafe 0s 3s forwards;
+    }
+  }
+}
+
+@keyframes reveal-failsafe {
+  to {
+    visibility: visible;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
