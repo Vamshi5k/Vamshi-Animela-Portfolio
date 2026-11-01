@@ -2,13 +2,17 @@
   "name": "vamshi-dev-portfolio",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "content:todos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/content-todos.mjs"
+    "content:todos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/content-todos.mjs",
+    "content:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/content-todos.mjs --strict"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

@@ -32,6 +32,9 @@ export type Language = {
 };
 
 export type Profile = {
+  readonly siteName: string;
+  /** Used for the page `<meta name="description">`. */
+  readonly metaDescription: string;
   readonly name: string;
   readonly roles: readonly string[];
   readonly location: { readonly city: string; readonly country: string };

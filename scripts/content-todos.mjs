@@ -1,9 +1,11 @@
 // Lists every TODO, null and empty-array field in src/data so missing content is visible.
 // Data files are loaded directly via Node's built-in TypeScript type stripping.
+// --strict: exit 1 if any TODO or null field remains (launch gate). Empty arrays are reported only.
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+const strict = process.argv.includes("--strict");
 const dataDir = path.resolve(import.meta.dirname, "../src/data");
 
 const isTodo = (v) =>
@@ -42,3 +44,8 @@ for (const file of files) {
 }
 
 console.log(`\n${counts.TODO} TODO, ${counts.null} null, ${counts.empty} empty`);
+
+if (strict && counts.TODO + counts.null > 0) {
+  console.error("content:check failed: TODO or null fields remain.");
+  process.exitCode = 1;
+}

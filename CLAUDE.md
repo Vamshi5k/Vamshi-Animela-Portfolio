@@ -19,6 +19,10 @@ See also @AGENTS.md: this is Next.js 16. Read the relevant guide in `node_module
 - `npm run typecheck`: `next typegen && tsc --noEmit` (regenerates route types first so stale `.next/types` never break it)
 - `npm run lint`: `eslint`
 - `npm run build`: `next build`
+- `npm run content:todos`: report every TODO, null and empty field in `src/data` (always exits 0)
+- `npm run content:check`: same report with `--strict`; exits 1 if any TODO or null field remains (launch gate)
+
+`scripts/content-todos.mjs` relies on Node running `.ts` files directly (built-in type stripping, Node >= 24, see `engines` in `package.json`). Data files in `src/data` must therefore only use `import type` from other modules and only erasable TypeScript syntax (no enums, namespaces or parameter properties).
 
 ## Folder conventions
 

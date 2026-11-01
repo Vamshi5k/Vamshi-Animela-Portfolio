@@ -1,9 +1,15 @@
 import type { Profile } from "./types";
 
+const name = "Vamshi Animela";
+const roles = ["React Native Developer", "Frontend Engineer", "Independent Developer"];
+const location = { city: "Hyderabad", country: "India" };
+
 export const profile: Profile = {
-  name: "Vamshi Animela",
-  roles: ["React Native Developer", "Frontend Engineer", "Independent Developer"],
-  location: { city: "Hyderabad", country: "India" },
+  siteName: "VAMSHI.DEV",
+  metaDescription: `${name}, ${roles[0]}, ${location.city}, ${location.country}.`,
+  name,
+  roles,
+  location,
   availability: [
     { id: "relocation", label: "Open to relocation" },
     { id: "remote", label: "Remote" },
