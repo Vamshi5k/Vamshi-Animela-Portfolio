@@ -16,7 +16,7 @@ See also @AGENTS.md: this is Next.js 16. Read the relevant guide in `node_module
 
 ## Scripts
 
-- `npm run typecheck`: `tsc --noEmit`
+- `npm run typecheck`: `next typegen && tsc --noEmit` (regenerates route types first so stale `.next/types` never break it)
 - `npm run lint`: `eslint`
 - `npm run build`: `next build`
 

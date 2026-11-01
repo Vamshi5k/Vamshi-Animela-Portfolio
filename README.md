@@ -8,7 +8,7 @@ Built with Next.js (App Router), TypeScript, Tailwind CSS, GSAP and Motion.
 
 ```bash
 npm run dev        # start the dev server
-npm run typecheck  # tsc --noEmit
+npm run typecheck  # next typegen && tsc --noEmit
 npm run lint       # eslint
 npm run build      # production build
 ```
