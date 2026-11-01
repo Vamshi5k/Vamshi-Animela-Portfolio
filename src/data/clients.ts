@@ -1,0 +1,45 @@
+import type { Client } from "./types";
+
+export const clients: readonly Client[] = [
+  {
+    id: "yasad",
+    name: "Yasad Ltd",
+    screenshot: null,
+    category: { todo: "Client category" },
+    contribution: { todo: "What Vamshi built for this client" },
+    tech: { todo: "Tech stack used" },
+    liveUrl: null,
+    urlVerified: false,
+  },
+  {
+    id: "sr-travels",
+    name: "SR Travels",
+    location: "Varanasi",
+    screenshot: null,
+    category: { todo: "Client category" },
+    contribution: { todo: "What Vamshi built for this client" },
+    tech: { todo: "Tech stack used" },
+    liveUrl: null,
+    urlVerified: false,
+  },
+  {
+    id: "sree-annapurna",
+    name: "Sree Annapurna Cloud Kitchen",
+    screenshot: null,
+    category: { todo: "Client category" },
+    contribution: { todo: "What Vamshi built for this client" },
+    tech: { todo: "Tech stack used" },
+    liveUrl: null,
+    urlVerified: false,
+  },
+  {
+    id: "manasvi-sketches",
+    name: "Manasvi Sketches",
+    screenshot: null,
+    category: { todo: "Client category" },
+    contribution: { todo: "What Vamshi built for this client" },
+    tech: { todo: "Tech stack used" },
+    liveUrl: null,
+    urlVerified: false,
+  },
+];

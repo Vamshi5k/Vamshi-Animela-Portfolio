@@ -1,0 +1,15 @@
+export const tech: readonly string[] = [
+  "React Native",
+  "React.js",
+  "Next.js",
+  "TypeScript",
+  "JavaScript",
+  "Redux",
+  "Tailwind CSS",
+  "Firebase",
+  "REST APIs",
+  "WebSockets",
+  "Git",
+  "Android Studio",
+  "Xcode",
+];
