@@ -26,6 +26,14 @@ Content gate rules: a `{ todo }` value always fails. A null or empty array fails
 
 Components must hide an element whose optional value is null: no empty link, no dead button, no placeholder for it.
 
+## Visual verification
+
+- `npm run shots:prod`: production build, `next start` on port 3100, then `scripts/shots.mjs` against it; the server is always stopped afterwards. Add `-- --reduced` to emulate prefers-reduced-motion.
+- `npm run shots -- <url> [--reduced]`: run `scripts/shots.mjs` against an already running server (default http://localhost:3000).
+- Full-page screenshots at 1440, 1280, 768, 390 and 375 px go to `design/screenshots/<timestamp>/` (gitignored). Each width gets an overflow check (PASS/FAIL, offending elements listed); any FAIL exits 1.
+- Screenshots and the overflow check are run against a production build, not next dev, because the dev indicator and dev behavior pollute results.
+- After every UI task, run npm run shots:prod, open the screenshots, and describe what you actually see, including defects. Never claim visual verification without having viewed the images.
+
 `scripts/content-todos.mjs` relies on Node running `.ts` files directly (built-in type stripping, Node >= 24, see `engines` in `package.json`). Data files in `src/data` must therefore only use `import type` from other modules and only erasable TypeScript syntax (no enums, namespaces or parameter properties).
 
 ## Folder conventions

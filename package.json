@@ -12,7 +12,9 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "content:todos": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/content-todos.mjs",
-    "content:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/content-todos.mjs --strict"
+    "content:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/content-todos.mjs --strict",
+    "shots": "node scripts/shots.mjs",
+    "shots:prod": "node scripts/shots-prod.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -31,6 +33,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
+    "playwright": "^1.64.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
