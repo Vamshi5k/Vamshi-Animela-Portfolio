@@ -12,4 +12,6 @@ export const ui: UiCopy = {
   marqueeLabel: "Technologies",
   marqueePause: "PAUSE",
   marqueePlay: "PLAY",
+  present: "PRESENT",
+  unitRoles: "ROLES",
 };

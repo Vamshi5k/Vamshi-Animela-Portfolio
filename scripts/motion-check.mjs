@@ -264,6 +264,99 @@ async function marqueeNoJs(browser, base) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Experience ruler
+// ---------------------------------------------------------------------------------------------
+
+/** Ruler state: scaleX of each desktop segment, opacity of each role, scaleY of the mobile cover. */
+const ruler = (page) =>
+  page.evaluate(() => {
+    const m = (el) => new DOMMatrixReadOnly(getComputedStyle(el).transform);
+    return {
+      segs: [...document.querySelectorAll("[data-exp-seg]")].map((el) => +m(el).a.toFixed(3)),
+      items: [...document.querySelectorAll("[data-exp-item]")].map((el) => +Number(getComputedStyle(el).opacity).toFixed(2)),
+      cover: +m(document.querySelector("[data-exp-mcover]")).d.toFixed(3),
+    };
+  });
+
+/** Scrolls so the desktop ruler's top sits at `fraction` of the viewport height. */
+const placeRuler = (page, fraction) =>
+  page.evaluate((f) => {
+    // The desktop ruler is display:none below lg; use whichever element is laid out.
+    const desktopRuler = document.querySelector("[data-exp-ruler]");
+    const el = desktopRuler?.getClientRects().length ? desktopRuler : document.querySelector("[data-exp-list]");
+    const top = el.getBoundingClientRect().top + window.scrollY - window.innerHeight * f;
+    window.scrollTo({ top, behavior: "instant" });
+  }, fraction);
+
+const drawn = (r) => r.segs.every((s) => s === 1) && r.items.every((o) => o === 1);
+
+async function experienceDesktop(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  await placeRuler(page, 0.95); // before the trigger start (top 80%)
+  await wait(900);
+  const before = await ruler(page);
+  check("experience 1440: ruler undrawn before its trigger", before.segs.every((s) => s === 0), JSON.stringify(before));
+  await placeRuler(page, 0.55); // about halfway between start (80%) and end (30%)
+  await wait(900);
+  const mid = await ruler(page);
+  const partial = mid.segs.some((s) => s > 0) && mid.segs.some((s) => s < 1);
+  check("experience 1440: ruler progress follows scroll (partially drawn midway)", partial, JSON.stringify(mid));
+  await placeRuler(page, 0.2); // past the end
+  await wait(900);
+  const after = await ruler(page);
+  check("experience 1440: ruler fully drawn and every role visible past the end", drawn(after), JSON.stringify(after));
+  check("experience 1440: no horizontal overflow", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await scrollToY(page, 0);
+  await wait(900);
+  const reset = await ruler(page);
+  check("experience 1440: ruler resets at the top of the page", reset.segs.every((s) => s === 0), JSON.stringify(reset));
+  await context.close();
+}
+
+async function experienceStatic(browser, base, label, options) {
+  const { context, page } = await open(browser, base, options);
+  const atTop = await ruler(page);
+  await placeRuler(page, 0.5);
+  await wait(1800); // allow a one-time draw on enter to finish where it applies
+  const inView = await ruler(page);
+  await placeRuler(page, 0.95);
+  await wait(500);
+  const backOut = await ruler(page);
+  await scrollToY(page, 0);
+  await wait(500);
+  const top = await ruler(page);
+  return { context, page, atTop, inView, backOut, top, label };
+}
+
+async function experienceReduced(browser, base) {
+  const desk = await experienceStatic(browser, base, "experience reduced 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+  check("experience reduced 1440: ruler fully drawn at every scroll position (no scrub)", [desk.atTop, desk.inView, desk.backOut, desk.top].every(drawn), JSON.stringify(desk.atTop));
+  await desk.context.close();
+
+  // The mobile cover only has a box below lg (display:none elements report transform "none").
+  const mob = await experienceStatic(browser, base, "experience reduced 390", { viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  check(
+    "experience reduced 390: no draw, cover never applied and roles always visible",
+    [mob.atTop, mob.inView, mob.backOut, mob.top].every((x) => x.cover === 0 && x.items.every((o) => o === 1)),
+    JSON.stringify(mob.atTop),
+  );
+  await mob.context.close();
+}
+
+async function experienceTouch(browser, base) {
+  const r = await experienceStatic(browser, base, "experience 390 touch", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  check("experience 390 touch: drawn once on enter, roles visible", r.inView.cover === 0 && r.inView.items.every((o) => o === 1), JSON.stringify(r.inView));
+  check("experience 390 touch: no scrub, stays drawn when scrolling away and back to the top", [r.backOut, r.top].every((x) => x.cover === 0 && x.items.every((o) => o === 1)));
+  await r.context.close();
+
+  const { context, page } = await open(browser, base, { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+  await placeRuler(page, 0.5);
+  await wait(500);
+  check("experience 375: no horizontal overflow", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
 /** Where the primary hero button sits in the first viewport. */
 async function fold(browser, base, viewport, required) {
   const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
@@ -290,6 +383,9 @@ await withProdServer(3100, async (base) => {
     await marqueeReduced(browser, base, { width: 375, height: 812 });
     await marqueeTouch(browser, base);
     await marqueeNoJs(browser, base);
+    await experienceDesktop(browser, base);
+    await experienceReduced(browser, base);
+    await experienceTouch(browser, base);
   } finally {
     await browser.close();
   }

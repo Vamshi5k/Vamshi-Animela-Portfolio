@@ -1,3 +1,5 @@
+import { Fragment, type ReactNode } from "react";
+import { Experience } from "@/components/sections/Experience";
 import { Header } from "@/components/sections/Header";
 import { Hero } from "@/components/sections/Hero";
 import { Marquee } from "@/components/sections/Marquee";
@@ -5,9 +7,14 @@ import { Container } from "@/components/ui/Container";
 import { PendingFrame } from "@/components/ui/PendingFrame";
 import { Section } from "@/components/ui/Section";
 import { sections } from "@/data/sections";
+import type { SectionMeta } from "@/data/types";
 
-// Page shell: hero + numbered sections in data order. Numbered sections are labelled placeholders
-// until their compositions are built (design/SPEC.md §1a).
+/** Built section compositions by id; the rest stay labelled placeholders (design/SPEC.md §1a). */
+const built: Record<string, (meta: SectionMeta) => ReactNode> = {
+  experience: (meta) => <Experience meta={meta} />,
+};
+
+// Page shell: hero, marquee, then the numbered sections in data order.
 export default function Home() {
   return (
     <>
@@ -15,13 +22,17 @@ export default function Home() {
       <main id="main" className="flex flex-1 flex-col">
         <Hero />
         <Marquee />
-        {sections.map((s) => (
-          <Section key={s.id} id={s.id} index={s.index} label={s.label}>
-            <Container className="mt-10">
-              <PendingFrame what={s.label} aspect="16 / 9" />
-            </Container>
-          </Section>
-        ))}
+        {sections.map((s) =>
+          built[s.id] ? (
+            <Fragment key={s.id}>{built[s.id](s)}</Fragment>
+          ) : (
+            <Section key={s.id} id={s.id} index={s.index} label={s.label}>
+              <Container className="mt-10">
+                <PendingFrame what={s.label} aspect="16 / 9" />
+              </Container>
+            </Section>
+          ),
+        )}
       </main>
     </>
   );

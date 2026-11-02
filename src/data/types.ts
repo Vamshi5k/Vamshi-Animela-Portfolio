@@ -185,6 +185,10 @@ export type UiCopy = {
   readonly marqueeLabel: string;
   readonly marqueePause: string;
   readonly marqueePlay: string;
+  /** Fixed end of the Experience ruler; nothing reads the current date (SPEC). */
+  readonly present: string;
+  /** Unit for the Experience section count, e.g. "03 ROLES". */
+  readonly unitRoles: string;
 };
 
 // sections.ts
