@@ -382,6 +382,86 @@
   }
 }
 
+/* Technology marquee (SPEC §1a). The loop is a pure CSS transform animation so it moves from first
+   paint without JavaScript; GSAP only adjusts its playbackRate from scroll velocity (Marquee.tsx).
+   Two identical sets; translating by -50% of the track moves exactly one set, so the loop is seamless. */
+@keyframes marquee {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* Archivo expanded (wdth 125, static), weight 500, uppercase. Heading size on mobile, Display M from md. */
+@utility type-marquee {
+  font-family: var(--font-display);
+  font-size: var(--text-heading);
+  line-height: 1.1;
+  font-weight: 500;
+  font-stretch: 125%;
+  text-transform: uppercase;
+
+  @media (width >= 48rem) {
+    font-size: var(--text-display-m);
+  }
+}
+
+@layer components {
+  .marquee-track {
+    /* Slow, even speed (~50px/s, measured by motion:check): one set is ~2.3k px at 375 and ~6.1k px
+       at 1440 (Display M is fluid, so width and speed scale together between md and 1440). */
+    --marquee-duration: 46s;
+    display: flex;
+    width: max-content;
+    animation: marquee var(--marquee-duration) linear infinite;
+
+    @media (width >= 48rem) {
+      --marquee-duration: 118s;
+    }
+  }
+
+  /* Display lives here, not in a utility class, so the reduced-motion rule below can hide set two. */
+  .marquee-set {
+    display: flex;
+    flex-shrink: 0;
+  }
+
+  .marquee[data-paused] .marquee-track {
+    animation-play-state: paused;
+  }
+
+  /* Hover pauses and highlights only where hover exists; touch has no hover dependence. */
+  @media (hover: hover) {
+    .marquee-track:hover {
+      animation-play-state: paused;
+    }
+    .marquee-name {
+      transition: color var(--duration-fast) var(--ease-out);
+    }
+    .marquee-name:hover {
+      color: var(--color-accent);
+    }
+  }
+
+  /* Reduced motion (SPEC): a static wrapped list of all names, same type, inside the page margins.
+     The duplicate set and the trailing separator are hidden. */
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
+      animation: none;
+      width: auto;
+      padding-inline: var(--margin);
+    }
+    .marquee-set {
+      flex-shrink: 1;
+      flex-wrap: wrap;
+      row-gap: 0.25em;
+    }
+    .marquee-set + .marquee-set,
+    .marquee-set > :last-child .marquee-sep {
+      display: none;
+    }
+  }
+}
+
 /* Hero scroll indicator: a short segment travelling down a hairline track. Static under reduced motion. */
 @keyframes scroll-cue {
   from {

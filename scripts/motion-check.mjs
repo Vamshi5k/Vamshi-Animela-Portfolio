@@ -1,8 +1,10 @@
 // Hero motion checks against a production build.
 // Usage: npm run motion:check   (builds, serves on 3100, runs checks, stops the server)
+// Also checks the technology marquee (loop geometry, hover, pause, velocity, reduced motion, touch, no-JS).
 // Desktop with a mouse: pointer depth moves within bounds and returns on leave; scroll parallax moves
 // without horizontal overflow. Reduced motion and 390 touch: no parallax or pointer transforms.
 import { chromium } from "playwright";
+import { tech } from "../src/data/tech.ts";
 import { withProdServer } from "./prod-server.mjs";
 
 const results = [];
@@ -97,6 +99,171 @@ async function noMotion(browser, base, label, options) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Marquee
+// ---------------------------------------------------------------------------------------------
+
+const marquee = (page) =>
+  page.evaluate(() => {
+    const track = document.querySelector(".marquee-track");
+    const sets = [...track.querySelectorAll(":scope > .marquee-set")];
+    const anim = track.getAnimations()[0] ?? null;
+    return {
+      sets: sets.map((s) => [...s.querySelectorAll(".marquee-name")].map((n) => n.textContent)),
+      setDisplay: sets.map((s) => getComputedStyle(s).display),
+      animationName: getComputedStyle(track).animationName,
+      playState: anim?.playState ?? null,
+      playbackRate: anim?.playbackRate ?? null,
+      currentTime: anim ? Math.round(anim.currentTime) : null,
+      ariaHiddenTrack: track.closest("[aria-hidden='true']") !== null,
+      srList: [...document.querySelectorAll(".marquee ul.sr-only li")].map((li) => li.textContent),
+    };
+  });
+
+/**
+ * Loop distance from the computed layout: the final keyframe's translateX (a % of the track's own
+ * width) times the track width, against the distance between the starts of set one and set two.
+ * Read-only: calling pause()/play() on a CSS animation would detach it from animation-play-state.
+ */
+const loopGeometry = (page) =>
+  page.evaluate(() => {
+    const track = document.querySelector(".marquee-track");
+    const [a, b] = track.querySelectorAll(":scope > .marquee-set");
+    const anim = track.getAnimations()[0];
+    const frames = anim.effect.getKeyframes();
+    const last = frames[frames.length - 1];
+    // The minifier may serialise the keyframe as `transform: translate3d(-50%,…)` or `translate: -50%`.
+    const end = String(last.transform ?? last.translate ?? JSON.stringify(last));
+    const match = end.match(/(-?[\d.]+)%/);
+    const percent = match ? Number.parseFloat(match[1]) : Number.NaN;
+    const loopDistance = (-percent / 100) * track.getBoundingClientRect().width;
+    const setWidth = b.getBoundingClientRect().left - a.getBoundingClientRect().left;
+    return { loopDistance, setWidth, duration: anim.effect.getComputedTiming().duration, end };
+  });
+
+async function marqueeDesktop(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  await page.evaluate(() => document.querySelector(".marquee").scrollIntoView({ block: "center", behavior: "instant" }));
+  await wait(400);
+
+  const s = await marquee(page);
+  const identical = s.sets.length === 2 && JSON.stringify(s.sets[0]) === JSON.stringify(s.sets[1]);
+  check("marquee: track holds exactly two identical sets", identical, `${s.sets.length} sets × ${s.sets[0]?.length} items`);
+  check("marquee: each set matches src/data/tech.ts in order", JSON.stringify(s.sets[0]) === JSON.stringify(tech));
+  check("marquee: moving track is aria-hidden, screen readers get a plain list", s.ariaHiddenTrack && JSON.stringify(s.srList) === JSON.stringify(tech));
+
+  const g = await loopGeometry(page);
+  check(
+    "marquee: loop translates by exactly one set's width (seamless)",
+    Math.abs(g.loopDistance - g.setWidth) <= 0.5,
+    `translate ${g.loopDistance.toFixed(2)}px vs set ${g.setWidth.toFixed(2)}px; keyframe ${g.end}`,
+  );
+  info("marquee 1440: speed", `${g.setWidth.toFixed(0)}px per ${(g.duration / 1000).toFixed(0)}s = ${(g.setWidth / (g.duration / 1000)).toFixed(1)}px/s`);
+
+  // Hover pauses (desktop has hover).
+  const box = await page.locator(".marquee-track").boundingBox();
+  await page.mouse.move(720, box.y + box.height / 2);
+  await wait(150);
+  const t1 = (await marquee(page)).currentTime;
+  await wait(400);
+  const hovered = await marquee(page);
+  check("marquee: hover pauses the row", hovered.playState === "paused" && hovered.currentTime === t1, `${hovered.playState}, t ${t1} → ${hovered.currentTime}`);
+  await page.mouse.move(720, 20);
+  await wait(200);
+  check("marquee: leaving resumes the row", (await marquee(page)).playState === "running");
+
+  // Pause toggle (WCAG 2.2.2).
+  const toggle = page.locator(".marquee button[aria-pressed]");
+  await toggle.click();
+  await page.mouse.move(720, 20);
+  await wait(200);
+  const toggled = await marquee(page);
+  check("marquee: PAUSE toggle stops the loop", toggled.playState === "paused" && (await toggle.getAttribute("aria-pressed")) === "true");
+  await toggle.click();
+  await page.mouse.move(720, 20);
+  await wait(200);
+  check("marquee: toggle again resumes it", (await marquee(page)).playState === "running" && (await toggle.getAttribute("aria-pressed")) === "false");
+
+  // Velocity coupling (SPEC): faster on scroll down, reversed on scroll up.
+  for (let i = 0; i < 6; i++) {
+    await page.mouse.wheel(0, 120);
+    await wait(30);
+  }
+  await wait(120);
+  const down = (await marquee(page)).playbackRate;
+  for (let i = 0; i < 6; i++) {
+    await page.mouse.wheel(0, -120);
+    await wait(30);
+  }
+  await wait(250);
+  const up = (await marquee(page)).playbackRate;
+  check("marquee: scrolling down speeds the loop up", down > 1.2, `playbackRate ${down.toFixed(2)}`);
+  check("marquee: scrolling up reverses it", up < 0, `playbackRate ${up.toFixed(2)}`);
+  check("marquee 1440: no horizontal overflow", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+/** Reduced motion (SPEC §1a): a static wrapped list with every technology fully visible. */
+async function marqueeReduced(browser, base, viewport) {
+  const tag = `marquee reduced ${viewport.width}`;
+  const { context, page } = await open(browser, base, { viewport, reducedMotion: "reduce" });
+  await page.evaluate(() => document.querySelector(".marquee").scrollIntoView({ block: "center", behavior: "instant" }));
+  await wait(200);
+  const s = await marquee(page);
+  const list = await page.evaluate(() => {
+    const set = document.querySelector(".marquee-set");
+    const items = [...set.children].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { name: el.querySelector(".marquee-name").textContent, left: r.left, right: r.right, top: Math.round(r.top) };
+    });
+    const vw = document.documentElement.clientWidth;
+    return {
+      names: items.map((i) => i.name),
+      allInside: items.every((i) => i.left >= 0 && i.right <= vw + 0.5),
+      rows: new Set(items.map((i) => i.top)).size,
+      lastSepShown: getComputedStyle(set.lastElementChild.querySelector(".marquee-sep")).display !== "none",
+      toggleShown: getComputedStyle(document.querySelector(".marquee button")).display !== "none",
+    };
+  });
+  check(`${tag}: animation is none`, s.animationName === "none" && s.playState === null, s.animationName);
+  check(`${tag}: duplicate set hidden`, s.setDisplay[1] === "none");
+  check(`${tag}: all ${tech.length} technologies listed in order`, JSON.stringify(list.names) === JSON.stringify(tech));
+  check(`${tag}: list wraps and every item is fully inside the viewport`, list.rows > 1 && list.allInside, `${list.rows} rows`);
+  check(`${tag}: no trailing separator`, !list.lastSepShown);
+  check(`${tag}: no PAUSE toggle when nothing moves`, !list.toggleShown);
+  check(`${tag}: no horizontal overflow`, (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+async function marqueeTouch(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+  await page.evaluate(() => document.querySelector(".marquee").scrollIntoView({ block: "center", behavior: "instant" }));
+  await wait(300);
+  const box = await page.locator(".marquee-track").boundingBox();
+  await page.touchscreen.tap(180, box.y + box.height / 2);
+  await wait(300);
+  const s = await marquee(page);
+  check("marquee 375 touch: loop keeps running after a tap (no hover dependence)", s.playState === "running", s.playState);
+  await page.evaluate(() => window.scrollBy({ top: 600, behavior: "instant" }));
+  await wait(300);
+  check("marquee 375 touch: no velocity coupling (constant speed)", (await marquee(page)).playbackRate === 1);
+  const g = await loopGeometry(page);
+  check("marquee 375: loop translates by exactly one set's width", Math.abs(g.loopDistance - g.setWidth) <= 0.5, `${g.loopDistance.toFixed(2)} vs ${g.setWidth.toFixed(2)}px`);
+  info("marquee 375: speed", `${g.setWidth.toFixed(0)}px per ${(g.duration / 1000).toFixed(0)}s = ${(g.setWidth / (g.duration / 1000)).toFixed(1)}px/s`);
+  check("marquee 375: no horizontal overflow", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+async function marqueeNoJs(browser, base) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto(base, { waitUntil: "load" });
+  const s = await marquee(page);
+  const visible = await page.locator(".marquee-track").isVisible();
+  check("marquee: visible and moving without JavaScript (pure CSS)", visible && s.playState === "running", `${s.animationName}, ${s.playState}`);
+  await context.close();
+}
+
 /** Where the primary hero button sits in the first viewport. */
 async function fold(browser, base, viewport, required) {
   const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
@@ -118,6 +285,11 @@ await withProdServer(3100, async (base) => {
     await noMotion(browser, base, "390 touch", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     await fold(browser, base, { width: 390, height: 844 }, true);
     await fold(browser, base, { width: 375, height: 667 }, false);
+    await marqueeDesktop(browser, base);
+    await marqueeReduced(browser, base, { width: 1440, height: 900 });
+    await marqueeReduced(browser, base, { width: 375, height: 812 });
+    await marqueeTouch(browser, base);
+    await marqueeNoJs(browser, base);
   } finally {
     await browser.close();
   }

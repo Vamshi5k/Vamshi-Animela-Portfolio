@@ -16,7 +16,7 @@
     "shots": "node scripts/shots.mjs",
     "shots:prod": "node scripts/shots-prod.mjs",
     "nav:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/nav-check.mjs",
-    "motion:check": "node scripts/motion-check.mjs"
+    "motion:check": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/motion-check.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

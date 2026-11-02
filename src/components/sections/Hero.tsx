@@ -109,7 +109,7 @@ export function Hero() {
       aria-labelledby="hero-name"
       className="relative scroll-mt-(--header-h) pt-(--header-h) lg:flex lg:min-h-svh lg:flex-col"
     >
-      <Container className="flex flex-col lg:layout-grid lg:flex-1 lg:items-end lg:pt-8 lg:pb-20">
+      <Container className="flex flex-col pb-16 lg:layout-grid lg:flex-1 lg:items-end lg:pt-8 lg:pb-20">
         {/* Type column. Mobile: overlaps the lower edge of the banner above it. */}
         <div className="relative z-10 order-2 -mt-40 flex flex-col md:-mt-44 lg:order-1 lg:col-span-7 lg:mt-0">
           {/* Text colour over the photo below lg (muted grey is too low-contrast on the banner). */}

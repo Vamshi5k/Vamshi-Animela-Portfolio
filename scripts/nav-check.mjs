@@ -115,8 +115,9 @@ async function desktop(browser, base, outDir) {
   check("desktop: section lands below the bar (scroll-margin)", sectionTop >= 40 && sectionTop <= 72, `section top ${sectionTop}px`);
 
   // Sections without a nav item keep the marker on the nav item above them; the centre index shows
+  // (navigable sections only: unnumbered bands such as the marquee have no id)
   // the real section. Expected mapping is derived from data: last nav item at or before the section.
-  const pageOrder = await page.evaluate(() => [...document.querySelectorAll("main > section")].map((s) => s.id));
+  const pageOrder = await page.evaluate(() => [...document.querySelectorAll("main > section[id]")].map((s) => s.id));
   const navIds = nav.items.map((i) => idOf(i.href));
   for (const id of pageOrder.filter((s) => !navIds.includes(s))) {
     const before = pageOrder.slice(0, pageOrder.indexOf(id) + 1).filter((s) => navIds.includes(s)).at(-1);

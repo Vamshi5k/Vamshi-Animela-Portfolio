@@ -181,6 +181,10 @@ export type UiCopy = {
   /** Accessible names for the primary nav landmark and the mobile menu dialog. */
   readonly primaryNav: string;
   readonly menuDialog: string;
+  /** Technology marquee: accessible name and the pause toggle labels. */
+  readonly marqueeLabel: string;
+  readonly marqueePause: string;
+  readonly marqueePlay: string;
 };
 
 // sections.ts

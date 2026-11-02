@@ -9,4 +9,7 @@ export const ui: UiCopy = {
   menuClose: "CLOSE",
   primaryNav: "Primary",
   menuDialog: "Site menu",
+  marqueeLabel: "Technologies",
+  marqueePause: "PAUSE",
+  marqueePlay: "PLAY",
 };
