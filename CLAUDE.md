@@ -61,6 +61,7 @@ Components must hide an element whose optional value is null: no empty link, no 
 - Fonts: `src/lib/fonts.ts` (Archivo with wdth, Instrument Sans wght only, IBM Plex Mono 400/500; latin). Archivo width is set with `font-stretch` (62%–125%).
 - Width-axis rule: animate Archivo's width only on large display text (Display M or larger) inside a fixed-size container sized for the widest state. Never on body text, labels or wrapping text. Static on touch and under prefers-reduced-motion. Currently used only for the Contact email hover.
 - Elements animated in by JS carry `data-reveal`; CSS hides them only when scripting is enabled and motion is allowed.
+- Motion split: first-paint entrances may be CSS keyframes, so above-the-fold content never waits for JavaScript (LCP); the hero uses the `hero-in-*` classes in `globals.css`. Scroll and pointer motion uses GSAP (via useGSAP, with cleanup). Both respect prefers-reduced-motion and use lighter motion on touch.
 
 ## TODO
 

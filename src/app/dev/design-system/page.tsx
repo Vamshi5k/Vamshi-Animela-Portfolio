@@ -11,6 +11,7 @@ import { Section } from "@/components/ui/Section";
 import { contact } from "@/data/contact";
 import { devDesignSystem as copy } from "@/data/devDesignSystem";
 import { education } from "@/data/education";
+import { hero } from "@/data/hero";
 import { experience } from "@/data/experience";
 import { profile } from "@/data/profile";
 import { projects } from "@/data/projects";
@@ -22,7 +23,6 @@ import { isTodo } from "@/lib/content";
 import { contrastRatio, wcagLevel } from "@/lib/contrast";
 import { archivo, instrumentSans, plexMono } from "@/lib/fonts";
 import { FontCheck } from "./_components/FontCheck";
-import { MagneticDemo } from "./_components/MagneticDemo";
 import { MotionTokenCheck } from "./_components/MotionTokenCheck";
 
 // Internal reference page. Must not ship: removed or blocked before launch (CLAUDE.md TODO, Prompt 20).
@@ -168,16 +168,16 @@ export default function DesignSystemPage() {
 
         <Block title={copy.buttons}>
           <div className="flex flex-col gap-4 md:flex-row md:flex-wrap">
-            <Button href="#main">{ui.heroPrimary}</Button>
+            <Button href="#main">{hero.primary.label}</Button>
             <Button href="#main" variant="ghost">
-              {ui.heroSecondary}
+              {hero.secondary.label}
             </Button>
           </div>
           <p className="type-mono-xs mt-10 mb-4 text-muted">{copy.focusDemo}</p>
           <div className="flex flex-col gap-4 md:flex-row md:flex-wrap">
-            <Button className={focusRingStatic}>{ui.heroPrimary}</Button>
+            <Button className={focusRingStatic}>{hero.primary.label}</Button>
             <Button variant="ghost" className={focusRingStatic}>
-              {ui.heroSecondary}
+              {hero.secondary.label}
             </Button>
           </div>
         </Block>
@@ -223,10 +223,6 @@ export default function DesignSystemPage() {
               <div className="relative h-40 border border-rule bg-surface">
                 <Grain opacity={0.12} />
               </div>
-            </div>
-            <div>
-              <p className="type-mono-xs mb-3 text-muted">{copy.magnetic}</p>
-              <MagneticDemo label={copy.magneticButton} />
             </div>
           </div>
         </Block>

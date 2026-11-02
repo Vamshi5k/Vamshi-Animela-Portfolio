@@ -2,7 +2,7 @@ import type { Profile } from "./types";
 
 const name = "Vamshi Animela";
 const roles = ["React Native Developer", "Frontend Engineer", "Independent Developer"];
-const location = { city: "Hyderabad", country: "India" };
+const location = { city: "Hyderabad", country: "India", coordinates: "17.38° N 78.48° E" };
 
 export const profile: Profile = {
   siteName: "VAMSHI.DEV",
@@ -21,6 +21,8 @@ export const profile: Profile = {
     { name: "Telugu", proficiency: "Native" },
     { name: "Hindi", proficiency: "Conversational" },
   ],
-  headline: { todo: "Hero headline in Vamshi's own words" },
+  headline: "I build digital experiences that move businesses forward.",
+  intro:
+    "Building production-ready mobile applications and modern web experiences through thoughtful engineering and creative execution.",
   bio: { todo: "About section bio" },
 };

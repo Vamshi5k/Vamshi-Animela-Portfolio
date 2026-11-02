@@ -37,12 +37,39 @@ export type Profile = {
   readonly metaDescription: string;
   readonly name: string;
   readonly roles: readonly string[];
-  readonly location: { readonly city: string; readonly country: string };
+  readonly location: {
+    readonly city: string;
+    readonly country: string;
+    /** Display string for the figure caption, e.g. "17.38° N 78.48° E". */
+    readonly coordinates: string;
+  };
   readonly availability: readonly { readonly id: Availability; readonly label: string }[];
   readonly experience: { readonly approxYears: number; readonly label: string };
   readonly languages: readonly Language[];
   readonly headline: Content<string>;
+  /** One-sentence introduction under the hero headline. */
+  readonly intro: Content<string>;
   readonly bio: Content<string>;
+};
+
+// hero.ts
+
+/** Source-pixel rectangle of an image to show (SPEC §5). The file itself is never cropped. */
+export type CropRect = { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
+
+export type Hero = {
+  readonly primary: Link;
+  readonly secondary: Link;
+  /** Label of the decorative scroll indicator. */
+  readonly scrollCue: string;
+  readonly portrait: {
+    readonly src: string;
+    readonly width: number;
+    readonly height: number;
+    readonly alt: string;
+    /** Per layout. Every crop excludes the two-person photo at x ≥ 770 (SPEC §5). */
+    readonly crop: { readonly mobile: CropRect; readonly tablet: CropRect; readonly desktop: CropRect };
+  };
 };
 
 // nav.ts
@@ -143,8 +170,6 @@ export type Education = {
 
 export type UiCopy = {
   readonly skipToContent: string;
-  readonly heroPrimary: string;
-  readonly heroSecondary: string;
   /** Prefix of every pending placeholder: "PENDING — <what>". */
   readonly pending: string;
   readonly pendingWhat: { readonly screenshot: string };

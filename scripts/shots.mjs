@@ -117,6 +117,11 @@ try {
       await page.waitForLoadState("networkidle");
 
       const file = path.join(outDir, `${slug(route)}-${width}.png`);
+      // Screenshots show settled UI. A full-page capture briefly resets the emulated viewport and touch
+      // state, which re-triggers media-dependent CSS entrances mid-capture (captured mid-fade or
+      // mid-zoom). Disabling CSS animations and transitions for the capture makes every element render
+      // its final state. Entrance motion itself is covered by motion:check and the LCP probe.
+      await page.addStyleTag({ content: "*, *::before, *::after { animation: none !important; transition: none !important; }" });
       await page.screenshot({ path: file, fullPage: true });
 
       const result = await findOverflow(page);

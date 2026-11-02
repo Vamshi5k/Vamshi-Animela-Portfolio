@@ -23,8 +23,6 @@ export const devDesignSystem = {
   revealWords: "TextReveal, words",
   reveal: "Reveal",
   grain: "Grain (SPEC §6: no global overlay)",
-  magnetic: "useMagnetic (SPEC §6: avoid on the site)",
-  magneticButton: "HOVER",
   tokens: "Motion tokens (TS vs CSS)",
   tokenMatch: "MATCH",
   tokenMismatch: "MISMATCH",

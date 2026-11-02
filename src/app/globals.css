@@ -40,6 +40,8 @@
   /* Fluid type scale (SPEC §3). */
   --text-*: initial;
   --text-display-xl: clamp(4.5rem, 15vw, 15rem);
+  /* Hero name: Display XL, also capped by viewport height so the hero fits short laptop screens. */
+  --text-display-hero: clamp(4.5rem, min(15vw, 24svh), 15rem);
   --text-display-xl--line-height: 0.82;
   --text-display-xl--letter-spacing: -0.01em;
   --text-display-l: clamp(2.75rem, 7vw, 7rem);
@@ -127,6 +129,17 @@
   text-transform: uppercase;
 }
 
+/* Display XL recipe at the height-aware hero size. */
+@utility type-display-hero {
+  font-family: var(--font-display);
+  font-size: var(--text-display-hero);
+  line-height: var(--text-display-xl--line-height);
+  letter-spacing: var(--text-display-xl--letter-spacing);
+  font-weight: 800;
+  font-stretch: 62%;
+  text-transform: uppercase;
+}
+
 @utility type-display-l {
   font-family: var(--font-display);
   font-size: var(--text-display-l);
@@ -191,6 +204,41 @@
   column-gap: var(--gutter);
 }
 
+/* Portrait crop (SPEC §5): shows a source-pixel rectangle of an image without altering the file.
+   Set --src-w/--src-h and per-layout --m-*, --t-*, --d-* (x, y, w, h) on the frame; the image inside
+   is scaled and offset so exactly that rectangle fills the frame. Mobile < 768, tablet < 1024, desktop. */
+@utility portrait-crop {
+  position: relative;
+  overflow: hidden;
+  --cx: var(--m-x);
+  --cy: var(--m-y);
+  --cw: var(--m-w);
+  --ch: var(--m-h);
+  aspect-ratio: calc(var(--cw) / var(--ch));
+
+  @media (width >= 48rem) {
+    --cx: var(--t-x);
+    --cy: var(--t-y);
+    --cw: var(--t-w);
+    --ch: var(--t-h);
+  }
+  @media (width >= 64rem) {
+    --cx: var(--d-x);
+    --cy: var(--d-y);
+    --cw: var(--d-w);
+    --ch: var(--d-h);
+  }
+
+  & > img {
+    position: absolute;
+    left: calc(var(--cx) * -100% / var(--cw));
+    top: calc(var(--cy) * -100% / var(--ch));
+    width: calc(var(--src-w) * 100% / var(--cw));
+    height: calc(var(--src-h) * 100% / var(--ch));
+    max-width: none;
+  }
+}
+
 /* Pending-content hatching (SPEC §4.4). Used only by PendingFrame. */
 @utility hatch {
   background-image: repeating-linear-gradient(
@@ -247,6 +295,108 @@
       visibility: hidden;
       animation: reveal-failsafe 0s 3s forwards;
     }
+  }
+}
+
+/* Hero first-paint entrance. CSS, not GSAP, so no hero text or image waits for JavaScript (LCP).
+   Each element: `hero-in` + one kind class + a delay `[--d:…]`. Touch: durations and delays × 0.6 and
+   no portrait zoom. Reduced motion: no animation at all (everything renders in its final state). */
+@keyframes hero-rise {
+  from {
+    transform: translateY(110%);
+  }
+}
+@keyframes hero-rise-fade {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+@keyframes hero-fade-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes hero-clip {
+  from {
+    clip-path: inset(100% 0% 0% 0%);
+  }
+  to {
+    clip-path: inset(0% 0% 0% 0%);
+  }
+}
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.08);
+  }
+}
+
+@layer components {
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-in {
+      --f: 1;
+      animation: var(--hero-anim) calc(var(--hero-dur) * var(--f)) var(--hero-ease, var(--ease-out))
+        calc(var(--d, 0s) * var(--f)) both;
+    }
+    .hero-in-rise {
+      --hero-anim: hero-rise;
+      --hero-dur: var(--duration-slow);
+    }
+    .hero-in-rise-fade {
+      --hero-anim: hero-rise-fade;
+      --hero-dur: var(--duration-base);
+    }
+    .hero-in-fade-up {
+      --hero-anim: hero-fade-up;
+      --hero-dur: var(--duration-base);
+    }
+    .hero-in-fade {
+      --hero-anim: hero-fade;
+      --hero-dur: var(--duration-base);
+    }
+    .hero-in-clip {
+      --hero-anim: hero-clip;
+      --hero-dur: var(--duration-slow);
+      --hero-ease: var(--ease-in-out);
+    }
+    .hero-in-zoom {
+      --hero-anim: hero-zoom;
+      --hero-dur: 1000ms;
+    }
+
+    @media (pointer: coarse) {
+      .hero-in {
+        --f: 0.6;
+      }
+      /* Explicit: a `none` name inside the shorthand would be parsed as the fill-mode. */
+      .hero-in.hero-in-zoom {
+        animation: none;
+      }
+    }
+  }
+}
+
+/* Hero scroll indicator: a short segment travelling down a hairline track. Static under reduced motion. */
+@keyframes scroll-cue {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(300%);
+  }
+}
+
+@utility scroll-cue-segment {
+  animation: scroll-cue 1.8s var(--ease-in-out) infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 }
 
