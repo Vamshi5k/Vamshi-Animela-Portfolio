@@ -133,7 +133,8 @@ export function Header() {
 
           {/* Wrapper owns visibility: Button's own inline-flex would override a `hidden` class on it. */}
           <div className="hidden lg:block">
-            <Button href={nav.cta.href} size="sm">
+            {/* Ghost, not lime: on the first screen the hero's primary button is the only lime UI element. */}
+            <Button href={nav.cta.href} size="sm" variant="ghost">
               {nav.cta.label}
             </Button>
           </div>

@@ -4,7 +4,7 @@ Status: **approved with conditions** (fonts, film-still portrait, typographic Ab
 
 Sources studied:
 - `design/references/moodboard.png` (1186×1327)
-- `public/images/vamshi-portrait.webp` (900×1600, a pixel-identical lossless copy of `design/references/vamshi-portrait-original.jpeg`). The original JPEG stays in `design/references/` and is not served from `public/`.
+- `public/images/vamshi-portrait-v2.webp` (1086×1448, the current hero portrait; see §5). The earlier photo's original JPEG stays in `design/references/` and is not served from `public/`.
 - `src/data/*.ts` (content as of commit `e179d76`)
 
 Identity: `#090909` bg · `#171717` surface · `#F2F0EA` text · `#A5FF6B` accent · `#858585` muted.
@@ -47,7 +47,7 @@ Numbered sections carry a section index (§4). The marquee and footer are bands,
 
 | # | Section | Layout composition (grid · focal point) | Typographic treatment | Signature motion | Mobile adaptation |
 |---|---|---|---|---|---|
-| 00 | **Hero** | **Asymmetric film frame.** Portrait plate in cols 8–12, 3:4, bottom-aligned to the hero baseline, with crop marks at its four corners and a mono caption under it (`FIG. 00 — HYDERABAD, IN · 17.38° N 78.48° E`). Crop per §5. Name stacked in cols 1–7, two lines, bottom-aligned to the same baseline. Roles as a mono line above the name. Below the name: availability line, then **two buttons**: `LET'S WORK TOGETHER` (primary: accent fill, `#090909` text) and `EXPLORE MY WORK` (ghost secondary: 1px `#F2F0EA` outline, text colour, transparent fill; links to `#work`). **Focal point:** the face in the upper third of the plate, read diagonally against the name at bottom-left. | Name: Display XL, Archivo wdth 62 / wght 800, uppercase, line-height 0.82. Roles: Mono S uppercase, separated by ` / `. Headline slot (TODO): Body L, one line under the name. Buttons: Mono S uppercase, 48px tall, square corners, arrow `→` on the primary only. | GSAP intro timeline, once: hairlines scale-x 0→1; name lines rise through a clip mask (each line's box is `overflow: hidden`, text translateY 100%→0); portrait plate reveals by `clip-path: inset(100% 0 0 0)` → `inset(0)`; crop marks and buttons fade in last. Total ≤ 1.4s. Scroll: plate drifts −6% yPercent (desktop, scrubbed). Buttons: Framer Motion hover/press states (primary: background shifts to `#F2F0EA`; ghost: fills `#171717`). | Stack: mono roles → name full width → portrait full-bleed 4:5 (no side margins, crop per §5) → availability → both buttons full width, primary first. No parallax. Intro durations × 0.6. |
+| 00 | **Hero** | **Asymmetric film frame.** Portrait plate in cols 8–12, 3:4, bottom-aligned to the hero baseline, with an offset back frame and a mono caption under it (no site crop marks: the photo carries its own, §5) (`FIG. 00 — HYDERABAD, IN · 17.38° N 78.48° E`). Crop per §5. Name stacked in cols 1–7, two lines, bottom-aligned to the same baseline. Roles as a mono line above the name. Below the name: availability line, then **two buttons**: `LET'S WORK TOGETHER` (primary: accent fill, `#090909` text) and `EXPLORE MY WORK` (ghost secondary: 1px `#F2F0EA` outline, text colour, transparent fill; links to `#work`). **Focal point:** the face in the upper third of the plate, read diagonally against the name at bottom-left. | Name: Display XL, Archivo wdth 62 / wght 800, uppercase, line-height 0.82. Roles: Mono S uppercase, separated by ` / `. Headline slot (TODO): Body L, one line under the name. Buttons: Mono S uppercase, 48px tall, square corners, arrow `→` on the primary only. | GSAP intro timeline, once: hairlines scale-x 0→1; name lines rise through a clip mask (each line's box is `overflow: hidden`, text translateY 100%→0); portrait plate reveals by `clip-path: inset(100% 0 0 0)` → `inset(0)`; back frame, caption and buttons fade in last. Total ≤ 1.4s. Scroll: plate drifts −6% yPercent (desktop, scrubbed). Buttons: Framer Motion hover/press states (primary: background shifts to `#F2F0EA`; ghost: fills `#171717`). | Stack: mono roles → name full width → portrait full-bleed 4:5 (no side margins, crop per §5) → availability → both buttons full width, primary first. No parallax. Intro durations × 0.6. |
 | — | **Marquee** | **The only full-bleed horizontal band.** Ignores the grid entirely; one line of type between two hairlines that run edge to edge. A small `PAUSE` toggle sits at the right end of the lower rule. **Focal point:** none by design; it is a rhythm break between hero and work. | 13 tech names from `tech.ts`, Archivo wdth 125 (expanded, **static**) / wght 500, uppercase, Display M size. Separators: muted `/`. | Continuous horizontal loop (GSAP, `transform` only); speed and direction follow scroll velocity (ScrollTrigger `getVelocity`, clamped). Pause button stops it (WCAG 2.2.2). | Smaller size (Heading). Velocity coupling off on touch; constant slow loop. Reduced motion: static wrapped list of all 13 names in the same type (inside the page margins), duplicate set hidden, no PAUSE toggle. |
 | 01 | **Selected Work** | **Sticky index + scrolling stage.** Cols 1–4: sticky list of the 4 projects (number + title). Cols 6–12: one panel per project, each ≥ 100vh, scrolling normally. Panel: big number, title, category, features as a mono list, tech, summary, screenshot area. **Focal point:** the active panel's title; the index shows where you are. | Index rows: Mono S number + Body title. Panel number: Display L in muted. Panel title: Display M, wdth 100 (static), may wrap to two lines (`text-wrap: balance`). Features: Mono S list with `—` bullets. Zylo: stamped label `FRONTEND ONLY. NO BACKEND.` (from `projectCopy.frontendOnly`), shown in **both** the index row and the panel. | Active project tracked with ScrollTrigger; the index indicator (a 2px accent bar) moves between rows with a Framer Motion shared `layoutId`. Panel contents enter with a short GSAP stagger. Natural scroll, CSS `position: sticky`; nothing is pinned or hijacked. | Index becomes a sticky horizontal strip `01 02 03 04` under the header (tabs that jump to panels). Panels have natural height, not 100vh. |
 | 02 | **Experience** | **Time ruler.** One full-width horizontal ruler (cols 1–12). Month ticks run from Aug 2023 to Nov 2024, spaced proportionally. Three markers sit at the three **start dates** only. After the last start, the ruler continues as an open dashed segment to a **fixed `PRESENT` marker** at the right end. That segment's length is fixed, not proportional, and nothing reads the clock. Role titles hang below their markers; company + location appear once, as a mono label at the ruler's left end. **Focal point:** the current role (React Native Developer) at the `PRESENT` end, the only marker in accent. | Ruler labels: Mono XS. Role titles: Heading. Current role: Display M. Dates: Mono S (`NOV 2024 — PRESENT`). End dates of roles 1–2 are TODO, so they are **not** printed; only starts are. | Ruler draws left→right, scrubbed to the section's scroll progress (GSAP `scrub` on `scaleX`, no pin). Markers appear as the line reaches them. | Ruler turns vertical along the left margin; roles stack to its right with proportional (min 64px) spacing, then the dashed segment to `PRESENT`. No scrub; one draw on enter. |
@@ -146,62 +146,49 @@ One system, used identically everywhere:
 
 1. **Section header rule.** Every numbered section opens with a full-width 1px hairline (`#F2F0EA` at 14% opacity). Directly under it is one Mono XS row: section index on the left (`§01`), section name next to it (`SELECTED WORK`), and on the right a count derived from data (`04 PROJECTS`, `06 GROUPS · 21 SKILLS`, `06 SERVICES`, `04 CLIENTS`, `03 ROLES`). Counts are computed from `src/data` lengths, never typed by hand. A small `+` registration mark sits at each end of the rule.
 2. **Item numbers** use a different format from section indices, so the two are never confused: `01 / 04` (Work), `01`–`06` (Services rows).
-3. **Crop marks.** Every image (the hero plate, plus client and project screenshots when they exist) gets four L-shaped corner marks 8px outside its edge, plus a mono caption with a figure number (`FIG. 00`, `FIG. 01` …). No image appears without them.
+3. **Crop marks.** Every image (client and project screenshots when they exist) gets four L-shaped corner marks 8px outside its edge, plus a mono caption with a figure number (`FIG. 00`, `FIG. 01` …). No image appears without them, except the hero portrait, which carries its own marks and keeps only its caption (§5).
 4. **Pending plate.** Any missing image or pending content block is shown as an outlined frame filled with 45° diagonal hatching (the moodboard's hatch element), with crop marks and the Mono XS label `PENDING — <WHAT>` (for example `PENDING — SCREENSHOT`). Hatching is used **only** for this, so it always means "not provided yet". This is the honest placeholder required by the content-integrity rule.
-5. **Accent budget.** `#A5FF6B` is used only for: the primary CTA (`LET'S WORK TOGETHER`, and `LET'S TALK` in the header), the active section index in the header, the active item indicator (Work index bar, Experience `PRESENT` marker), focus rings and links on hover. It's never a fill for decoration, never a glow, and appears in at most two places per viewport. (The hero's first viewport has two: the primary button and the header CTA. Nothing else in the hero may use accent.)
+5. **Accent budget.** `#A5FF6B` is used only for: the primary CTA (`LET'S WORK TOGETHER`, and `LET'S TALK` inside the open mobile menu), the active section index in the header, the active item indicator (Work index bar, Experience `PRESENT` marker), focus rings and links on hover. It's never a fill for decoration, never a glow, and appears in at most two places per viewport. The header's `LET'S TALK` is ghost style. **First screen: exactly one UI lime element**, the hero's primary button. Lime inside a photograph does not count toward this budget (§5).
 6. **Header index.** The header's center shows the current section as `§03 / EXPERTISE`, updated by ScrollTrigger. The section rule and the header index are the same information, at two scales.
 7. **Arrow.** `↗` marks external links only (LinkedIn, GitHub, verified client URLs). `→` appears only on the primary hero button. Internal links otherwise use no arrow.
 
 ## 5. Portrait treatment
 
-### What the photo actually is
-- **Format:** 900×1600 portrait (9:16), apparently a phone or messaging-app export. It has visible film-style grain and an existing cinematic grade: teal-cool shadows, warm highlights, and darkened top corners.
-- **Subject:** standing, three-quarter view, head turned toward frame right, looking off-camera. Dark round sunglasses, voluminous wavy dark hair, a denim button-up shirt with rolled sleeves, left hand on hip at the right frame edge (the arm is cut by the frame), and a red braided bracelet near the bottom right.
-- **Position:** the head spans roughly x 285–575, y 635–940; the face centre is about 52% across and 51% down. The torso fills the lower 45% of the frame. The top ~38% is empty wall.
-- **Lighting:** warm, low window light from frame left. The window-pane shadow pattern falls across the lower-left wall. The face is lit softly and evenly, and the right side of the frame falls into shadow.
-- **Background:** a light grey-white wall with about 12 film posters, two hanging caps and a ceiling smoke detector. It is busy, and much **brighter** than the site background.
-- **People in the background:**
-  - a small photo of two people, upper right, about **x 770–895, y 755–830**, level with the subject's head. **This is the one to exclude.**
-  - a printed sports poster with a player, lower left, about x 95–210, y 1015–1180.
+### The photo
+- **File:** `public/images/vamshi-portrait-v2.webp`, 1086×1448 (3:4), supplied by Vamshi on 2026-11-02 as a finished, edited image. It replaces the earlier 900×1600 photo; that photo's original JPEG stays in `design/references/` for reference only.
+- **Image:** a black-and-white portrait with a **lime rim light** along the hair and the subject's left side, on a dark textured background. The background's lime diagonal stripe, thin rules and `+` marks are part of the photograph.
+- **Subject:** standing, three-quarter view, head turned toward frame right, dark round sunglasses, a denim shirt with rolled sleeves, hand on hip at the right edge. Face centre ≈ (530, 500) px: about 49% across and 35% down.
+- **Background:** graphic only. **No posters and no other people**, so nothing needs excluding.
 
 ### Rules
-- **The photo file is never altered.** No re-encoding, grading, retouching, blur or background removal, and nothing touching the face. Only cropping (through CSS framing), scaling, a clip-path reveal and a 1px frame are used.
-- **No cutout.** The moodboard's hero figure is a different, edited image. The photo's own grade and grain are already cinematic, so it's presented as a **film still**: a rectangular plate with crop marks and a figure caption.
-- **Brightness:** the wall makes the photo the brightest element on the page. Any correction is made **on the frame, in CSS**: a `filter` (for example a small `brightness()` reduction on the `<img>` element) or a vignette overlay on the plate. It's decided only after we review the real hero in screenshots. Nothing is applied by default.
-- **Replacement:** you may replace the photo. All crop rectangles below are tied to this 900×1600 file and must be recomputed if it changes.
+- **The photo file is never altered.** No re-encoding, recolouring, grading or retouching, and nothing touching the face. Only CSS framing: cropping, scaling, the clip-path reveal and the offset back frame.
+- **No site crop marks on the hero portrait.** The photograph carries its own `+` marks and rules; drawing ours around it would double the motif. The `FIG. 00` caption stays. This is the one exception to §4.3.
+- **Lime inside a photograph does not count toward the lime budget (§4.5).** UI lime on the first screen is limited to **one** element: the hero's `LET'S WORK TOGETHER`. The header's `LET'S TALK` is ghost style.
+- **Replacing the photo:** give the file a new name (Next's image cache and browsers key on the name), update `src/data/hero.ts`, and recompute the crops below.
 
-### Crops: exclude the two-person photo where possible
+### Crops
+Source-pixel rectangles from `src/data/hero.ts`, applied by the `portrait-crop` utility (an `overflow: hidden` frame with the image scaled and offset inside it; the file itself is not cropped).
 
-The two-person photo sits beside the subject's head (x ≥ 770), and the subject's shoulder and arm continue to the right edge (x 900) further down. A rectangle can only exclude it by cutting the frame at **x ≤ 760**. That cuts the right shoulder and arm, and with them the hand and bracelet. The crops below exclude it. The sports poster at lower left can't be excluded at the same time without cutting the subject, so it stays; it is printed poster art, not a private photo.
-
-The crop is applied with an `overflow: hidden` frame and the image scaled and offset inside it (the image is 900/760 = 118.4% of the frame width, anchored left). The file itself is not cropped.
-
-| Viewport | Plate | Source rectangle shown | Result |
+| Viewport | Frame | Source rectangle shown | Result |
 |---|---|---|---|
-| Desktop ≥1024 | 3:4, cols 8–12 (≈ 560×747 at 1440) | x 0–760, y 590–1600 | Hair has ~45px headroom; face ~23% from top, 62% across (looking into the frame's open right side). Two-person photo excluded. Hand and bracelet excluded. |
-| Tablet | 3:4, cols 5–8 of 8 | same as desktop | same |
-| Mobile <768 | full-bleed 4:5 (375×469 at 375) | x 0–760, y 590–1540 | Head in upper quarter, cut at the waist. Two-person photo excluded. |
+| Desktop ≥1024 | 3:4 plate, cols 8–12 (≈ 546×728 at 1440) | the whole image, 1086×1448 | No crop needed: the photo is already 3:4. |
+| Tablet 768–1023 | full-bleed 1:1 banner | x 0–1086, y 100–1186 | Full head with headroom; face ≈ 37% from the top. |
+| Mobile <768 | full-bleed 4:5 banner | x 0–1086, y 0–1358 | Face ≈ 37% from the top; the name overlaps the faded lower edge. |
 
-**Resolution cost:** showing 760 source pixels across a 560px desktop plate means about 1.47× upscaling at 2× DPR. On a 3× mobile screen it's about 1.5× on a 375px-wide full-bleed plate. That's visible softness on top of the existing grain, so it's checked in the hero screenshots. If it's not acceptable:
-- **Fallback A:** show the full width (x 0–900), which includes the two-person photo, for better sharpness.
-- **Fallback B:** a replacement or full-resolution photo (preferred).
+**Resolution:** 1086 source pixels are about 1:1 on a 2× desktop plate and need about 1.08× upscaling on a 3× phone. Both are acceptable.
 
-### About: no photograph (condition 3)
-
-About is fully typographic (§1a). **Conditional alternative, only if you supply a full-resolution original (≥ 1800px wide):**
-- **Desktop:** a narrow 2:3 detail crop of the hand, bracelet and denim (source region x 560–900, y 1060–1600 in today's coordinates, scaled to the new file) in cols 8–9, between the bio column and the fact sheet. The bio narrows to cols 2–7.
-- **Mobile:** a 16:9 band after the bio.
-- It gets the same crop marks and clip-path reveal as the hero plate.
+### About: no photograph
+About is fully typographic (§1a). A detail crop beside the bio is only an option if a photo suited to it (≥ 1800px wide) is supplied; it would get the same clip-path reveal as the hero plate.
 
 ### Alt text and loading
-- `alt` text lives in `src/data` (I'll propose wording and you approve it).
-- The hero image is `priority`.
+- `alt` lives in `src/data/hero.ts`: "Portrait of Vamshi Animela".
+- One `<Image>` serves every layout with `preload` (Next 16's replacement for `priority`), so there is a single LCP candidate and no double download.
 
 ## 6. Risks: where this could drift into a generic AI portfolio
 
 | Generic pattern | Where it could creep in | How it's avoided |
 |---|---|---|
-| Cut-out portrait + glowing ring + gradient behind the name | Hero (it's literally in the moodboard) | Photo stays a rectangular film still; no glow, no ring, no gradient text. |
+| Cut-out portrait + glowing ring + gradient behind the name | Hero (it's literally in the moodboard) | Photo stays a rectangular plate; the UI adds no glow, ring or gradient text. The rim light and stripe belong to the supplied photograph (§5). |
 | Bento / card grids | Services, Expertise | No cards anywhere. Services is a diagonal ladder, Expertise a ruled table. |
 | Phone mockups with invented screens | Work | Forbidden by content integrity. Screenshots appear only when real; until then, the pending plate. |
 | Tech-logo marquee | Marquee | Text only, expanded type, velocity-linked, pausable. Logos are never used. |
@@ -252,7 +239,6 @@ About is fully typographic (§1a). **Conditional alternative, only if you supply
 
 ## 8. Open items
 
-1. **Hero crop sharpness:** the poster-excluding crop (x 0–760) costs resolution. Decide between it, Fallback A or Fallback B after the first hero screenshots.
-2. **Hero brightness:** decide whether a CSS filter or vignette on the frame is needed after the first hero screenshots.
-3. **Photo:** you may replace it, or supply a full-resolution original. The latter also unlocks the About detail-crop alternative.
-4. **Copy:** add the UI labels listed in §0 to `src/data`, and write `alt` text, before or during implementation.
+1. **Hero photo:** resolved. Replaced with `vamshi-portrait-v2.webp` (1086×1448); no poster exclusion, no brightness correction needed (§5).
+2. **About detail crop:** only if a suitable photo (≥ 1800px wide) is supplied (§5).
+3. **Copy:** add the UI labels listed in §0 to `src/data`, and write `alt` text, before or during implementation.

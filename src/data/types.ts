@@ -67,7 +67,7 @@ export type Hero = {
     readonly width: number;
     readonly height: number;
     readonly alt: string;
-    /** Per layout. Every crop excludes the two-person photo at x ≥ 770 (SPEC §5). */
+    /** Source-pixel rectangle shown per layout (SPEC §5); tied to this exact image file. */
     readonly crop: { readonly mobile: CropRect; readonly tablet: CropRect; readonly desktop: CropRect };
   };
 };

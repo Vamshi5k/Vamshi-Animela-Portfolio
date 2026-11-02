@@ -158,13 +158,11 @@ export function Hero() {
         {/* Portrait. Mobile/tablet: full-bleed banner. Desktop: plate in cols 8–12 with a back frame. */}
         <div className="order-1 -mx-(--margin) lg:order-2 lg:col-span-5 lg:col-start-8 lg:mx-0">
           <div data-hero="plate" className="relative">
+            {/* No corner marks here: the photograph carries its own + marks and rules (SPEC §5). */}
             <CropMarks
               figure={0}
               caption={caption}
-              placement="responsive"
-              marksClassName="hero-in hero-in-fade [--d:1s]"
-              // Below lg the name overlaps the banner's lower edge: no marks between its lines.
-              bottomMarksClassName="hidden lg:block"
+              marks={false}
               captionClassName="hero-in hero-in-fade hidden [--d:1s] lg:block"
             >
               {/* Back frame: offset outline behind the image only (layered depth, desktop). */}

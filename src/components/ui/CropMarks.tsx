@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ui } from "@/data/ui";
 import { formatFigure } from "@/lib/format";
 
-type Placement = "outside" | "inside" | "responsive";
+type Placement = "outside" | "inside";
 
 type Props = {
   children: ReactNode;
@@ -14,14 +14,11 @@ type Props = {
   /**
    * "outside": marks sit 8px beyond the edge (SPEC §4.3).
    * "inside": marks sit 8px within the edge; use for full-bleed images so marks never cause overflow.
-   * "responsive": inside below lg (full-bleed mobile banners), outside from lg.
    */
   placement?: Placement;
+  /** Render the corner marks (default). False keeps only the figure and caption. */
+  marks?: boolean;
   className?: string;
-  /** Extra classes for the marks layer (e.g. a data hook for motion). */
-  marksClassName?: string;
-  /** Extra classes for the two bottom corner marks only (e.g. hide where text overlaps them). */
-  bottomMarksClassName?: string;
   captionClassName?: string;
 };
 
@@ -32,21 +29,14 @@ const corners = [
   "bottom-0 right-0 border-b border-r",
 ];
 
-const inset: Record<Placement, string> = {
-  outside: "-inset-2",
-  inside: "inset-2",
-  responsive: "inset-2 lg:-inset-2",
-};
-
-/** Corner-mark frame used on every image and pending plate (SPEC §4.3). */
+/** Corner-mark frame used on images and pending plates (SPEC §4.3). */
 export function CropMarks({
   children,
   figure,
   caption,
   placement = "outside",
+  marks = true,
   className,
-  marksClassName,
-  bottomMarksClassName,
   captionClassName,
 }: Props) {
   const hasCaption = figure !== undefined || caption;
@@ -54,14 +44,16 @@ export function CropMarks({
     <figure className={clsx("relative", className)}>
       <div className="relative">
         {children}
-        <div aria-hidden="true" className={clsx("pointer-events-none absolute", inset[placement], marksClassName)}>
-          {corners.map((c) => (
-            <span
-              key={c}
-              className={clsx("absolute size-3 border-muted", c, c.startsWith("bottom") && bottomMarksClassName)}
-            />
-          ))}
-        </div>
+        {marks && (
+          <div
+            aria-hidden="true"
+            className={clsx("pointer-events-none absolute", placement === "outside" ? "-inset-2" : "inset-2")}
+          >
+            {corners.map((c) => (
+              <span key={c} className={clsx("absolute size-3 border-muted", c)} />
+            ))}
+          </div>
+        )}
       </div>
       {hasCaption && (
         <figcaption className={clsx("type-mono-xs mt-4 text-muted", captionClassName)}>

@@ -47,6 +47,7 @@ Components must hide an element whose optional value is null: no empty link, no 
 - `src/hooks/`: custom React hooks.
 - `design/`: design references and notes (not shipped).
 - `public/images/projects/`, `public/images/clients/`: real image assets only.
+- When replacing an image, give it a new file name; Next's image cache and browsers key on the name.
 
 ## Next.js config notes
 
