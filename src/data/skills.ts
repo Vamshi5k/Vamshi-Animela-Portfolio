@@ -28,7 +28,7 @@ export const skills: readonly SkillGroup[] = [
   {
     id: "integration",
     label: "Integration",
-    items: ["REST APIs", "Axios", "Fetch", "WebSockets", "JSON", "Google Maps SDK"],
+    items: ["REST APIs", "Axios", "Fetch", "WebSockets", "JSON"],
   },
   {
     id: "platform",
@@ -60,7 +60,7 @@ export const skills: readonly SkillGroup[] = [
       "ESLint",
       "Prettier",
       "Agile/Scrum",
-      "AI-Assisted Development (Claude, GitHub Copilot, Cursor)",
+      "AI-Assisted Development",
     ],
   },
 ];
