@@ -94,6 +94,8 @@ export type Project = {
   /** `false` must always be stated in the UI (see `projectCopy.frontendOnly`). */
   readonly hasBackend: Content<boolean>;
   readonly summary: Content<string>;
+  /** Year the project was built (from Vamshi's resume). */
+  readonly year: Content<number>;
 };
 
 // experience.ts

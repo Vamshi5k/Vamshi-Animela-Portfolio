@@ -24,5 +24,5 @@ export const profile: Profile = {
   headline: "I build digital experiences that move businesses forward.",
   intro:
     "Building production-ready mobile applications and modern web experiences through thoughtful engineering and creative execution.",
-  bio: { todo: "About section bio" },
+  bio: "React Native engineer with 3+ years of experience shipping production iOS and Android apps to the App Store and Google Play from a single TypeScript codebase. I progressed from Web Developer Intern to Frontend Developer to React Native Developer at one company, and also deliver React.js and Next.js work for freelance clients in the UK and India.",
 };
