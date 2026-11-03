@@ -272,9 +272,17 @@ async function marqueeNoJs(browser, base) {
 const ruler = (page) =>
   page.evaluate(() => {
     const m = (el) => new DOMMatrixReadOnly(getComputedStyle(el).transform);
+    const opacity = (el) => +Number(getComputedStyle(el).opacity).toFixed(2);
     return {
       segs: [...document.querySelectorAll("[data-exp-seg]")].map((el) => +m(el).a.toFixed(3)),
-      items: [...document.querySelectorAll("[data-exp-item]")].map((el) => +Number(getComputedStyle(el).opacity).toFixed(2)),
+      // Station dates + markers, and the fixed PRESENT station (desktop ruler).
+      stations: [...document.querySelectorAll("[data-exp-ruler] [data-exp-station]")].map(opacity),
+      // Each elbow leader: down (scaleY), across (scaleX), into the column (scaleY); min of the three.
+      leaders: [...document.querySelectorAll("[data-exp-leader]")].map((l) => {
+        const [down, across, into] = l.children;
+        return +Math.min(m(down).d, m(across).a, m(into).d).toFixed(3);
+      }),
+      items: [...document.querySelectorAll("[data-exp-item]")].map(opacity),
       cover: +m(document.querySelector("[data-exp-mcover]")).d.toFixed(3),
     };
   });
@@ -289,14 +297,19 @@ const placeRuler = (page, fraction) =>
     window.scrollTo({ top, behavior: "instant" });
   }, fraction);
 
-const drawn = (r) => r.segs.every((s) => s === 1) && r.items.every((o) => o === 1);
+const all = (xs, v) => xs.length > 0 && xs.every((x) => x === v);
+const drawn = (r) => all(r.segs, 1) && all(r.stations, 1) && all(r.leaders, 1) && all(r.items, 1);
 
 async function experienceDesktop(browser, base) {
   const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
   await placeRuler(page, 0.95); // before the trigger start (top 80%)
   await wait(900);
   const before = await ruler(page);
-  check("experience 1440: ruler undrawn before its trigger", before.segs.every((s) => s === 0), JSON.stringify(before));
+  check(
+    "experience 1440: ruler, stations and leaders undrawn before the trigger",
+    all(before.segs, 0) && all(before.stations, 0) && all(before.leaders, 0),
+    JSON.stringify(before),
+  );
   await placeRuler(page, 0.55); // about halfway between start (80%) and end (30%)
   await wait(900);
   const mid = await ruler(page);
@@ -305,12 +318,22 @@ async function experienceDesktop(browser, base) {
   await placeRuler(page, 0.2); // past the end
   await wait(900);
   const after = await ruler(page);
-  check("experience 1440: ruler fully drawn and every role visible past the end", drawn(after), JSON.stringify(after));
+  check("experience 1440: past the end, ruler drawn, stations visible, leaders drawn, roles visible", drawn(after), JSON.stringify(after));
+
+  // Each leader's last piece lands on its column's left edge.
+  const landing = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-exp-leader]")].map((l, i) => {
+      const into = l.children[2].getBoundingClientRect().left;
+      const col = document.querySelectorAll("[data-exp-item]")[i].getBoundingClientRect().left;
+      return +(into - col).toFixed(1);
+    }),
+  );
+  check("experience 1440: elbow leaders land on their columns (±1px)", landing.every((d) => Math.abs(d) <= 1), JSON.stringify(landing));
   check("experience 1440: no horizontal overflow", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
   await scrollToY(page, 0);
   await wait(900);
   const reset = await ruler(page);
-  check("experience 1440: ruler resets at the top of the page", reset.segs.every((s) => s === 0), JSON.stringify(reset));
+  check("experience 1440: ruler and leaders reset at the top of the page", all(reset.segs, 0) && all(reset.leaders, 0), JSON.stringify(reset));
   await context.close();
 }
 
@@ -338,7 +361,7 @@ async function experienceReduced(browser, base) {
   const mob = await experienceStatic(browser, base, "experience reduced 390", { viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
   check(
     "experience reduced 390: no draw, cover never applied and roles always visible",
-    [mob.atTop, mob.inView, mob.backOut, mob.top].every((x) => x.cover === 0 && x.items.every((o) => o === 1)),
+    [mob.atTop, mob.inView, mob.backOut, mob.top].every((x) => x.cover === 0 && all(x.items, 1)),
     JSON.stringify(mob.atTop),
   );
   await mob.context.close();
@@ -346,8 +369,8 @@ async function experienceReduced(browser, base) {
 
 async function experienceTouch(browser, base) {
   const r = await experienceStatic(browser, base, "experience 390 touch", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-  check("experience 390 touch: drawn once on enter, roles visible", r.inView.cover === 0 && r.inView.items.every((o) => o === 1), JSON.stringify(r.inView));
-  check("experience 390 touch: no scrub, stays drawn when scrolling away and back to the top", [r.backOut, r.top].every((x) => x.cover === 0 && x.items.every((o) => o === 1)));
+  check("experience 390 touch: drawn once on enter, roles visible", r.inView.cover === 0 && all(r.inView.items, 1), JSON.stringify(r.inView));
+  check("experience 390 touch: no scrub, stays drawn when scrolling away and back to the top", [r.backOut, r.top].every((x) => x.cover === 0 && all(x.items, 1)));
   await r.context.close();
 
   const { context, page } = await open(browser, base, { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });

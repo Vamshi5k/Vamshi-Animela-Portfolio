@@ -105,7 +105,6 @@ export type Role = {
   /** `"present"` for the current role. */
   readonly end: Content<YearMonth | "present">;
   readonly description: Content<string>;
-  readonly highlights: Content<readonly string[]>;
 };
 
 export type Experience = {
