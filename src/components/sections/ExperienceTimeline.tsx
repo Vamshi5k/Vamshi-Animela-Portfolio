@@ -16,6 +16,12 @@ const SPANS_FOR_THREE = [3, 4, 5];
 
 type Props = { company: Experience };
 
+/** "React Native Developer (iOS & Android)" → main "React Native Developer", note "(iOS & Android)". */
+const splitTitle = (title: string) => {
+  const match = title.match(/^(.*?)\s*(\([^()]*\))$/);
+  return match ? { main: match[1], note: match[2] } : { main: title, note: null };
+};
+
 /**
  * Experience: Station Ruler (SPEC §1a).
  * Desktop: a full-width ruler with the start dates printed on it as stations, a fixed dashed segment to
@@ -236,6 +242,7 @@ export function ExperienceTimeline({ company }: Props) {
             const description = isTodo(role.description) ? null : role.description;
             const employment = isTodo(role.employmentType) ? null : role.employmentType;
             const end = isTodo(role.end) ? null : role.end;
+            const title = splitTitle(role.title);
             const dates =
               end === "present"
                 ? `${formatYearMonth(role.start)} — ${ui.present}`
@@ -262,7 +269,15 @@ export function ExperienceTimeline({ company }: Props) {
                 {/* Station date: shown on mobile; on desktop the ruler shows it, so it stays for screen readers only. */}
                 <p className="type-mono-s text-muted lg:sr-only">{dates}</p>
                 <h3 className={clsx("mt-2 text-text lg:mt-0", isCurrent ? "type-display-m max-w-[14ch]" : "type-heading")}>
-                  {role.title}
+                  {title.main}
+                  {/* A trailing parenthetical, e.g. "(iOS & Android)", is a smaller mono line that never splits. */}
+                  {title.note && (
+                    // Original case kept ("iOS", not "IOS"); inline so it reliably overrides the mono uppercase.
+                    <span className="type-mono-s mt-2 block whitespace-nowrap text-muted" style={{ textTransform: "none" }}>
+                      {" "}
+                      {title.note}
+                    </span>
+                  )}
                 </h3>
                 {employment && <p className="type-mono-xs mt-3 text-muted">{employment}</p>}
                 {description ? (
