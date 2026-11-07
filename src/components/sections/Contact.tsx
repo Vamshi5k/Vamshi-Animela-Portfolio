@@ -9,8 +9,8 @@ import { ContactEmail } from "./ContactEmail";
 
 type Row = { id: string; label: string; href: string; detail: string };
 
-/** "https://linkedin.com/in/x/" → "linkedin.com/in/x": the address as a mono coordinate. */
-const bare = (href: string) => href.replace(/^https?:\/\//, "").replace(/\/$/, "");
+/** "https://www.linkedin.com/in/x/" → "linkedin.com/in/x": the address as a mono coordinate. */
+const bare = (href: string) => href.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
 
 /**
  * §07 Contact (SPEC §1a): one giant line. Headline, then the email across the full width (proximity type,
@@ -35,7 +35,7 @@ export function Contact({ meta }: { meta: SectionMeta }) {
         </div>
 
         <div className="layout-grid mt-20 lg:mt-28">
-          <ul className="col-span-full border-b border-rule lg:col-span-6">
+          <ul className="col-span-full border-b border-rule">
             {rows.map((row) => (
               <li key={row.id} className="border-t border-rule">
                 <a
@@ -60,7 +60,7 @@ export function Contact({ meta }: { meta: SectionMeta }) {
               </li>
             ))}
           </ul>
-          {/* Reserved: lg cols 8–12 hold the contact form (prompt 5). Nothing renders here until then. */}
+          {/* Full width until the contact form exists (prompt 5); the form will then take lg cols 8–12 beside the rows. */}
         </div>
       </Container>
     </Section>

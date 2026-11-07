@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { gsap, ScrollTrigger } from "@/lib/gsap";
+import { gsap } from "@/lib/gsap";
 import { gsapEase, motion } from "@/lib/motion-tokens";
 
 const CURTAIN_QUERY = "(min-width: 64rem) and (prefers-reduced-motion: no-preference)";
@@ -53,43 +53,59 @@ export function FooterMotion({ children }: { children: ReactNode }) {
       ctx = gsap.context(() => {
         if (wordmark) gsap.set(wordmark, { visibility: "visible" });
         if (next === "curtain") {
-          const max = () => ScrollTrigger.maxScroll(window);
-          // Every letter starts below the crop. Set explicitly: a staggered fromTo only renders the first
-          // letter's start state at progress 0, which left the others already risen behind <main>.
+          // Driven by live geometry, never by cached scroll positions: the uncovered share is how far <main>'s
+          // bottom edge has risen above the viewport bottom, read once per scroll frame. Page-height changes
+          // after setup (late fonts, images, dev-mode CSS) therefore cannot strand the letters below the crop.
+          const main = document.getElementById("main");
+          if (!main) return;
+          // Every letter starts below the crop (set explicitly: a staggered fromTo only renders the first).
           gsap.set(letters, { yPercent: 100 });
-          gsap.to(
-            letters,
-            {
-              yPercent: 0,
-              ease: "none",
-              duration: 1,
-              stagger: 0.08,
-              scrollTrigger: {
-                start: () => max() - footer.offsetHeight,
-                end: () => max(),
-                scrub: 0.4,
-                invalidateOnRefresh: true,
-                onUpdate: (st) => setOpen(st.progress > OPEN_AT),
-              },
-            },
-          );
-        } else {
-          if (next === "rise") {
-            const f = window.matchMedia("(pointer: coarse)").matches ? motion.touchFactor : 1;
-            gsap.set(letters, { yPercent: 100 });
-            ScrollTrigger.create({
-              trigger: footer,
-              start: "top 85%",
-              once: true,
-              onEnter: () => {
-                gsap.to(letters, { yPercent: 0, duration: motion.duration.slow * f, ease: gsapEase.out, stagger: motion.stagger * f });
-              },
-            });
-          }
-          ScrollTrigger.create({ trigger: footer, start: "top 80%", end: "bottom top", onToggle: (st) => setOpen(st.isActive) });
+          const rise = gsap.timeline({ paused: true }).to(letters, { yPercent: 0, ease: "none", duration: 1, stagger: 0.08 });
+          const proxy = { p: 0 };
+          const follow = gsap.quickTo(proxy, "p", { duration: 0.4, ease: gsapEase.out, onUpdate: () => void rise.progress(proxy.p) });
+          let first = true;
+          let frameId = 0;
+          const measure = () => {
+            frameId = 0;
+            const p = gsap.utils.clamp(0, 1, (window.innerHeight - main.getBoundingClientRect().bottom) / footer.offsetHeight);
+            if (first) {
+              first = false;
+              proxy.p = p;
+              rise.progress(p);
+            }
+            follow(p);
+            setOpen(p > OPEN_AT);
+          };
+          const onScroll = () => {
+            if (!frameId) frameId = requestAnimationFrame(measure);
+          };
+          measure();
+          window.addEventListener("scroll", onScroll, { passive: true });
+          window.addEventListener("resize", onScroll, { passive: true });
+          return () => {
+            cancelAnimationFrame(frameId);
+            window.removeEventListener("scroll", onScroll);
+            window.removeEventListener("resize", onScroll);
+          };
         }
+        // Normal flow: an IntersectionObserver (live geometry, nothing cached) opens the footer, and in rise mode
+        // plays the wordmark rise once when the footer is 15% into the viewport.
+        const f = window.matchMedia("(pointer: coarse)").matches ? motion.touchFactor : 1;
+        let risen = next !== "rise";
+        if (!risen) gsap.set(letters, { yPercent: 100 });
+        const io = new IntersectionObserver(
+          ([entry]) => {
+            setOpen(entry.isIntersecting);
+            if (!risen && entry.isIntersecting) {
+              risen = true;
+              gsap.to(letters, { yPercent: 0, duration: motion.duration.slow * f, ease: gsapEase.out, stagger: motion.stagger * f });
+            }
+          },
+          { rootMargin: "0px 0px -15% 0px" },
+        );
+        io.observe(footer);
+        return () => io.disconnect();
       }, root);
-      ScrollTrigger.refresh();
     };
 
     build();
