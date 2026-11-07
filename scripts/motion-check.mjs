@@ -1129,6 +1129,169 @@ async function contactTouchHint(browser, base, viewport) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Footer: the curtain (sticky behind <main>), wordmark rise, fallback, lime budget, back to top
+// ---------------------------------------------------------------------------------------------
+
+const footerState = (page) =>
+  page.evaluate(() => {
+    const f = document.querySelector("[data-footer]");
+    const fr = f.getBoundingClientRect();
+    const letterH = document.querySelector("[data-wm-letter]").offsetHeight;
+    const rows = [...document.querySelectorAll("[data-contact-link]")];
+    const last = rows.at(-1).getBoundingClientRect();
+    const hit = document.elementFromPoint(last.left + 40, last.top + last.height / 2);
+    return {
+      mode: f.dataset.mode,
+      curtain: document.documentElement.hasAttribute("data-curtain"),
+      height: f.offsetHeight,
+      vh: innerHeight,
+      top: fr.top,
+      mainBottom: document.getElementById("main").getBoundingClientRect().bottom,
+      lastRowBottom: last.bottom,
+      lastRowHit: !!hit?.closest("[data-contact-link]"),
+      rise: [...document.querySelectorAll("[data-wm-letter]")].map((l) => new DOMMatrixReadOnly(getComputedStyle(l).transform).m42 / letterH),
+      wordmarkVisible: getComputedStyle(document.querySelector("[data-wordmark]")).visibility === "visible",
+      year: document.querySelector("[data-footer-year]")?.dataset.footerYear ?? null,
+      yearText: document.querySelector("[data-footer-year]")?.textContent ?? "",
+      ox: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+
+const maxScroll = (page) => page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+
+/** Visible elements painted in the accent colour (text or background), as short descriptors. */
+const limeOnScreen = (page) =>
+  page.evaluate(() => {
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim().toLowerCase();
+    const n = parseInt(accent.slice(1), 16);
+    const rgb = `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+    const out = [];
+    for (const el of document.querySelectorAll("body *")) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0 || r.bottom < 0 || r.top > innerHeight) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === "hidden" || cs.display === "none" || +cs.opacity === 0) continue;
+      const hasText = [...el.childNodes].some((c) => c.nodeType === Node.TEXT_NODE && c.textContent.trim());
+      if ((hasText && cs.color === rgb) || cs.backgroundColor === rgb) {
+        if (el.closest("[data-back-to-top]")) out.push("back-to-top");
+        else out.push(el.tagName.toLowerCase() + (el.className ? "." + String(el.className).split(" ")[0] : ""));
+      }
+    }
+    return [...new Set(out)];
+  });
+
+async function footerCurtain(browser, base, viewport, full = false) {
+  const tag = `footer ${viewport.width}x${viewport.height}`;
+  const { context, page } = await open(browser, base, { viewport });
+  await page.evaluate(() => document.fonts.ready);
+  const max = await maxScroll(page);
+  const s0 = await footerState(page);
+  check(`${tag}: curtain mode (sticky behind main) and the footer fits the viewport`, s0.mode === "curtain" && s0.curtain && s0.height <= s0.vh, `${s0.mode}, ${s0.height}px of ${s0.vh}px`);
+  for (let y = max - s0.height - viewport.height; y <= max - s0.height; y += viewport.height / 4) {
+    await scrollToY(page, y);
+    await wait(80);
+  }
+  await wait(600);
+  const covered = await footerState(page);
+  await scrollToY(page, max - s0.height / 2);
+  await wait(900);
+  const half = await footerState(page);
+  await scrollToY(page, max);
+  await wait(1200);
+  const open_ = await footerState(page);
+  const pinned = (s) => Math.abs(s.top - (s.vh - s.height)) <= 1;
+  check(`${tag}: footer stays put at the viewport bottom while main lifts away (no pinning of content)`, pinned(covered) && pinned(half) && pinned(open_), `top ${Math.round(covered.top)} / ${Math.round(half.top)} / ${Math.round(open_.top)}`);
+  check(`${tag}: main's edge uncovers the footer (edge moves with scroll)`, Math.abs(half.mainBottom - (half.vh - half.height / 2)) <= 2 && Math.abs(open_.mainBottom - open_.top) <= 1, `edge ${Math.round(half.mainBottom)} → ${Math.round(open_.mainBottom)}`);
+  if (!full) {
+    await context.close();
+    return;
+  }
+  check("footer: wordmark hidden below the crop while covered", covered.rise.every((r) => r > 0.9), covered.rise.map((r) => r.toFixed(2)).join(","));
+  const mid = half.rise;
+  check("footer: halfway, letters rise one by one (staggered, left letters higher)", mid.some((r) => r > 0.05 && r < 0.95) && mid.every((r, i) => i === 0 || r >= mid[i - 1] - 0.001), mid.map((r) => r.toFixed(2)).join(","));
+  check("footer: fully uncovered, every letter has risen", open_.rise.every((r) => r < 0.05), open_.rise.map((r) => r.toFixed(2)).join(","));
+  check("footer: Contact's last row is never covered (above the footer, hit-testable)", open_.lastRowBottom <= open_.top && open_.lastRowHit, `row bottom ${Math.round(open_.lastRowBottom)} ≤ footer top ${Math.round(open_.top)}`);
+  const lime = await limeOnScreen(page);
+  check("footer: back to top is the only lime element on screen", lime.length === 1 && lime[0] === "back-to-top", lime.join(", "));
+  check("footer: year read on the client after mount", open_.year === String(new Date().getFullYear()), open_.yearText);
+  check("footer 1440: no horizontal overflow", open_.ox <= 0, `${open_.ox}px`);
+
+  // Keyboard: from Contact's last row, Tab walks the footer links in order, with visible focus.
+  await page.locator("[data-contact-link]").last().focus();
+  const order = [];
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Tab");
+    order.push(
+      await page.evaluate(() => {
+        const el = document.activeElement;
+        return { text: el?.textContent?.trim() ?? "", footer: !!el?.closest("[data-footer]"), outline: el ? getComputedStyle(el).outlineStyle : "none" };
+      }),
+    );
+  }
+  const footerStops = order.filter((o) => o.footer);
+  const { nav } = await import("../src/data/nav.ts");
+  const { ui } = await import("../src/data/ui.ts");
+  const expected = [...nav.items.map((n) => n.label), ui.footer.backToTop];
+  check(
+    "footer keyboard: Tab order is the index links then back to top, each with visible focus",
+    JSON.stringify(footerStops.slice(0, expected.length).map((o) => o.text.toUpperCase())) === JSON.stringify(expected.map((t) => t.toUpperCase())) && footerStops.every((o) => o.outline !== "none"),
+    footerStops.map((o) => o.text).join(" → "),
+  );
+
+  // Back to top: smooth scroll to the top and focus moves to the hero.
+  await page.locator("[data-back-to-top]").focus();
+  await page.keyboard.press("Enter");
+  await wait(150);
+  const midway = await page.evaluate(() => window.scrollY);
+  await wait(2500);
+  const top = await page.evaluate(() => ({ y: window.scrollY, focus: document.activeElement?.id }));
+  check("footer: back to top scrolls smoothly to the top and moves focus to the top of the page", midway > 0 && top.y === 0 && top.focus === "home", `y ${midway} → ${top.y}, focus #${top.focus}`);
+  await context.close();
+}
+
+async function footerFlow(browser, base, label, options, expectMode) {
+  const { context, page } = await open(browser, base, options);
+  await page.evaluate(() => document.fonts.ready);
+  const s = await footerState(page);
+  check(`footer ${label}: ${expectMode} mode, normal flow (no curtain)`, s.mode === expectMode && !s.curtain, `${s.mode}, ${s.height}px of ${s.vh}px`);
+  const before = s.rise;
+  const max = await maxScroll(page);
+  for (let y = max - s.height - options.viewport.height; y <= max; y += options.viewport.height / 4) {
+    await scrollToY(page, y);
+    await wait(80);
+  }
+  await scrollToY(page, max);
+  await wait(1500);
+  const after = await footerState(page);
+  if (expectMode === "rise") check(`footer ${label}: wordmark rises once on entry`, before.every((r) => r > 0.9) && after.rise.every((r) => r < 0.02), `${before[0].toFixed(2)} → ${after.rise[0].toFixed(2)}`);
+  if (expectMode === "static") check(`footer ${label}: wordmark static and visible, never moved`, before.every((r) => r === 0) && after.rise.every((r) => r === 0) && after.wordmarkVisible);
+  // Never covered: the row ends above the footer in page order. On a viewport shorter than the footer the row
+  // has legitimately scrolled out of view at the bottom, so it is brought back into view and hit-tested there.
+  check(`footer ${label}: Contact's last row ends above the footer (nothing covered)`, after.lastRowBottom <= after.top + 1, `row bottom ${Math.round(after.lastRowBottom)} ≤ footer top ${Math.round(after.top)}`);
+  await page.locator("[data-contact-link]").last().scrollIntoViewIfNeeded();
+  await wait(300);
+  const reach = await footerState(page);
+  check(`footer ${label}: Contact's last row is reachable and hit-testable (not under the footer)`, reach.lastRowHit && reach.lastRowBottom <= reach.top + 1);
+  check(`footer ${label}: no horizontal overflow`, after.ox <= 0, `${after.ox}px`);
+  if (expectMode === "static") {
+    await page.locator("[data-back-to-top]").click();
+    await wait(120);
+    const t = await page.evaluate(() => ({ y: window.scrollY, focus: document.activeElement?.id }));
+    check(`footer ${label}: back to top jumps instantly and moves focus`, t.y === 0 && t.focus === "home", JSON.stringify(t));
+  }
+  await context.close();
+}
+
+async function footerNoJs(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 }, javaScriptEnabled: false }, "main");
+  const s = await footerState(page);
+  const credits = await page.evaluate(() => document.querySelector("[data-footer-year]")?.parentElement?.textContent ?? "");
+  const { profile } = await import("../src/data/profile.ts");
+  check("footer no JS: normal flow, wordmark visible, credits complete with © and the build-time year", !s.curtain && s.wordmarkVisible && /^©\s\d{4}$/.test(s.yearText.trim()) && credits.includes(profile.name), JSON.stringify({ curtain: s.curtain, credits }));
+  await context.close();
+}
+
 /** Where the primary hero button sits in the first viewport. */
 async function fold(browser, base, viewport, required) {
   const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
@@ -1183,6 +1346,16 @@ await withProdServer(3100, async (base) => {
     await contactTouchHint(browser, base, { width: 390, height: 844 });
     await contactStatic(browser, base, "no JS 1440", { viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
     await contactStatic(browser, base, "no JS 375", { viewport: { width: 375, height: 812 }, javaScriptEnabled: false });
+    await footerCurtain(browser, base, { width: 1440, height: 900 }, true);
+    await footerCurtain(browser, base, { width: 1440, height: 700 });
+    await footerCurtain(browser, base, { width: 1280, height: 720 });
+    await footerCurtain(browser, base, { width: 1920, height: 1080 });
+    await footerFlow(browser, base, "1440x320 (too short)", { viewport: { width: 1440, height: 320 } }, "rise");
+    await footerFlow(browser, base, "reduced 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" }, "static");
+    await footerFlow(browser, base, "390 touch", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }, "rise");
+    await footerFlow(browser, base, "375 touch", { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true }, "rise");
+    await footerFlow(browser, base, "1280x300 (too short)", { viewport: { width: 1280, height: 300 } }, "rise");
+    await footerNoJs(browser, base);
     await cursorDesktop(browser, base);
     await cursorAbsent(browser, base, "reduced motion 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     await cursorAbsent(browser, base, "touch 390", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });

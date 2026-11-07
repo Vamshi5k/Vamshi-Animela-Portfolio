@@ -218,6 +218,19 @@ export type UiCopy = {
     readonly opensNewTab: string;
     readonly whatsapp: string;
   };
+  /** Footer colophon (end credits) labels. */
+  readonly footer: {
+    /** Accessible name of the footer nav landmark. */
+    readonly navLabel: string;
+    readonly credits: string;
+    readonly copyright: string;
+    readonly designedBy: string;
+    readonly location: string;
+    readonly index: string;
+    readonly setIn: string;
+    readonly typefaces: readonly string[];
+    readonly backToTop: string;
+  };
   /** Viewfinder cursor pill labels, keyed by the data-cursor value (see CLAUDE.md). */
   readonly cursor: { readonly view: string; readonly copy: string; readonly drag: string; readonly open: string };
 };

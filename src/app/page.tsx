@@ -3,6 +3,7 @@ import { About } from "@/components/sections/About";
 import { Contact } from "@/components/sections/Contact";
 import { Experience } from "@/components/sections/Experience";
 import { Expertise } from "@/components/sections/Expertise";
+import { Footer } from "@/components/sections/Footer";
 import { Header } from "@/components/sections/Header";
 import { Hero } from "@/components/sections/Hero";
 import { Marquee } from "@/components/sections/Marquee";
@@ -40,6 +41,7 @@ export default function Home() {
           ),
         )}
       </main>
+      <Footer />
     </>
   );
 }

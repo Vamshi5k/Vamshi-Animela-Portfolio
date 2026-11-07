@@ -35,5 +35,16 @@ export const ui: UiCopy = {
     opensNewTab: "opens in a new tab",
     whatsapp: "WhatsApp",
   },
+  footer: {
+    navLabel: "Footer",
+    credits: "CREDITS",
+    copyright: "©",
+    designedBy: "Designed and built by",
+    location: "LOCATION",
+    index: "INDEX",
+    setIn: "SET IN",
+    typefaces: ["Archivo", "Instrument Sans", "IBM Plex Mono"],
+    backToTop: "BACK TO TOP",
+  },
   cursor: { view: "VIEW", copy: "COPY", drag: "DRAG", open: "OPEN" },
 };

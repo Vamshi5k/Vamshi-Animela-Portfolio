@@ -627,6 +627,50 @@
   }
 }
 
+/* Footer (SPEC §1a), the end credits. In curtain mode (<html data-curtain>, set by FooterMotion only on
+   desktop with motion allowed and when the footer fits the viewport) the footer is sticky at the bottom
+   behind <main>, which carries the page background and a hairline edge, so Contact lifts away to uncover
+   it. Otherwise it is in normal flow. The wordmark fills the content width and is cropped at the bottom. */
+@layer components {
+  html[data-curtain] #main {
+    position: relative;
+    z-index: 1;
+    background: var(--color-bg);
+  }
+  html[data-curtain] #main::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 1px;
+    background: var(--color-rule);
+  }
+  html[data-curtain] .site-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 0;
+  }
+  /* While the footer is open, back to top is the only lime element: the header index turns to text colour. */
+  html[data-footer-open] [data-section-index] .text-accent {
+    color: var(--color-text);
+  }
+  .footer-wordmark-crop {
+    /* 0.44em: measured average advance of the uppercase wordmark at wdth 62 / wght 800, so it fills the width. */
+    --wm-size: calc(100cqi / (var(--chars) * 0.44));
+    height: calc(var(--wm-size) * 0.6);
+    overflow: hidden;
+  }
+  .footer-wordmark {
+    font-family: var(--font-display);
+    font-size: var(--wm-size);
+    line-height: 0.74;
+    letter-spacing: -0.01em;
+    font-weight: 800;
+    font-stretch: 62%;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+}
+
 /* Viewfinder cursor (SPEC §4.8, ViewfinderCursor.tsx). The wrapper follows the pointer via an inline
    transform. Its four corner brackets are one object: in a labelled state they slide outward to frame
    the label (transform only; --vf-ox/--vf-oy are set once per state change from the label's size).

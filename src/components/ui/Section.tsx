@@ -26,12 +26,13 @@ export function Section({ id, index, label, meta, className, children }: Props) 
     >
       <Container>
         <SectionRule />
-        <div className="type-mono-xs mt-3 flex items-baseline gap-4 text-muted">
+        {/* Phones: the meta drops to its own line under the index and label; from 768 it sits right-aligned. */}
+        <div className="type-mono-xs mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-muted">
           <span className="text-text">{formatSectionIndex(index)}</span>
           <h2 id={labelId} className="type-mono-xs">
             {label}
           </h2>
-          {meta && <span className="ml-auto">{meta}</span>}
+          {meta && <span data-section-meta className="basis-full md:ml-auto md:basis-auto">{meta}</span>}
         </div>
       </Container>
       {children}
