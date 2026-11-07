@@ -462,6 +462,48 @@
   }
 }
 
+/* Expertise spec plate (SPEC §1a). Each row has a base layer (light on dark) and an aria-hidden inverted
+   copy (dark on cream) stacked exactly over it. The inversion scan wipes the copy in with clip-path; the
+   group label fills from outline to solid with a clip-path wipe on entry. */
+@utility type-plate-label {
+  font-family: var(--font-display);
+  font-size: var(--text-display-l);
+  line-height: 0.9;
+  letter-spacing: -0.005em;
+  font-weight: 800;
+  font-stretch: 62%;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@layer components {
+  /* Outlined label: stroke only. */
+  .plate-outline {
+    color: transparent;
+    -webkit-text-stroke: 1px var(--color-text);
+  }
+  /* Inverted copy: hidden to the right until the row is active; the wipe runs left → right. */
+  .plate-inverse {
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path var(--duration-base) var(--ease-out);
+  }
+  .plate-row[data-active] .plate-inverse {
+    clip-path: inset(0 0 0 0);
+  }
+  /* While one row is scanned, its neighbours fall back to hollow: the solid fill fades out to the outline
+     and the mono text dims. Three states: hollow (scanning elsewhere), solid (rest), inverted (active). */
+  .plate-row [data-plate-fill],
+  .plate-row .plate-dim {
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  .plate[data-scanning] .plate-row:not([data-active]) [data-plate-fill] {
+    opacity: 0;
+  }
+  .plate[data-scanning] .plate-row:not([data-active]) .plate-dim {
+    opacity: 0.4;
+  }
+}
+
 /* Viewfinder cursor (SPEC §4.8, ViewfinderCursor.tsx). The wrapper follows the pointer via an inline
    transform. Its four corner brackets are one object: in a labelled state they slide outward to frame
    the label (transform only; --vf-ox/--vf-oy are set once per state change from the label's size).

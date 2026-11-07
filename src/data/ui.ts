@@ -14,5 +14,7 @@ export const ui: UiCopy = {
   marqueePlay: "PLAY",
   present: "PRESENT",
   unitRoles: "ROLES",
+  unitGroups: "GROUPS",
+  unitSkills: "SKILLS",
   cursor: { view: "VIEW", copy: "COPY", drag: "DRAG", open: "OPEN" },
 };

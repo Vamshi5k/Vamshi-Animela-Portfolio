@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { Experience } from "@/components/sections/Experience";
+import { Expertise } from "@/components/sections/Expertise";
 import { Header } from "@/components/sections/Header";
 import { Hero } from "@/components/sections/Hero";
 import { Marquee } from "@/components/sections/Marquee";
@@ -12,6 +13,7 @@ import type { SectionMeta } from "@/data/types";
 /** Built section compositions by id; the rest stay labelled placeholders (design/SPEC.md §1a). */
 const built: Record<string, (meta: SectionMeta) => ReactNode> = {
   experience: (meta) => <Experience meta={meta} />,
+  expertise: (meta) => <Expertise meta={meta} />,
 };
 
 // Page shell: hero, marquee, then the numbered sections in data order.

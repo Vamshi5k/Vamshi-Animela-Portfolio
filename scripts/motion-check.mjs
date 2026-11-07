@@ -1,9 +1,11 @@
 // Hero motion checks against a production build.
 // Usage: npm run motion:check   (builds, serves on 3100, runs checks, stops the server)
+// Also checks the Expertise plate (entry decode, inversion scan by hover/focus/tap, reduced motion, overflow).
 // Also checks the technology marquee (loop geometry, hover, pause, velocity, reduced motion, touch, no-JS).
 // Desktop with a mouse: pointer depth moves within bounds and returns on leave; scroll parallax moves
 // without horizontal overflow. Reduced motion and 390 touch: no parallax or pointer transforms.
 import { chromium } from "playwright";
+import { skills } from "../src/data/skills.ts";
 import { tech } from "../src/data/tech.ts";
 import { withProdServer } from "./prod-server.mjs";
 
@@ -473,6 +475,228 @@ async function cursorAbsent(browser, base, label, options) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Expertise spec plate (§03): entry fill + decode, inversion scan (hover, focus, tap), reduced motion
+// ---------------------------------------------------------------------------------------------
+
+const ROW = (i) => `[data-plate-row="${i}"]`;
+const clipFull = (c) => /^inset\(0(px|%)?\)$/.test(c);
+const clipHidden = (c) => c.includes("100%");
+
+const plate = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll("[data-plate-row]")].map((row) => {
+      const fill = row.querySelector("[data-plate-fill]");
+      const inverse = row.querySelector(".plate-inverse");
+      return {
+        role: row.getAttribute("role"),
+        tabIndex: row.getAttribute("tabindex"),
+        ariaLabel: row.getAttribute("aria-label"),
+        active: row.hasAttribute("data-active"),
+        heading: row.querySelector("h3")?.textContent,
+        visual: row.querySelector("[data-plate-label]")?.textContent,
+        fillClip: getComputedStyle(fill).clipPath,
+        fillVisible: getComputedStyle(fill).visibility === "visible",
+        fillOpacity: +getComputedStyle(fill).opacity,
+        dim: +getComputedStyle(row.querySelector(".plate-dim")).opacity,
+        inverseClip: getComputedStyle(inverse).clipPath,
+        inverseTransition: getComputedStyle(inverse).transitionDuration,
+        readout: row.querySelector("[data-plate-readout]")?.textContent,
+      };
+    }),
+  );
+
+const sectionTop = (page) => page.evaluate(() => document.getElementById("expertise").getBoundingClientRect().top + window.scrollY);
+
+/** Scroll the whole plate through the viewport so every row's entry trigger fires. */
+async function scrollPlateThrough(page, height) {
+  const top = await sectionTop(page);
+  const h = await page.evaluate(() => document.getElementById("expertise").offsetHeight);
+  for (let y = top - height; y <= top + h; y += height / 3) {
+    await scrollToY(page, y);
+    await wait(120);
+  }
+  await wait(1200);
+}
+
+async function expertiseDesktop(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  const before = await plate(page);
+  check("expertise: six rows, each a focusable group (role=group, tabindex=0)", before.length === skills.length && before.every((r) => r.role === "group" && r.tabIndex === "0"));
+  check(
+    "expertise: each row's aria-label names the group and lists its items from src/data/skills.ts",
+    before.every((r, i) => r.ariaLabel === `${skills[i].label}: ${skills[i].items.join(", ")}`),
+  );
+  check("expertise: real label text present before entry (heading and visual copy)", before.every((r, i) => r.heading === skills[i].label && r.visual === skills[i].label));
+  check("expertise: label fills wait below the fold (wiped out to the outline)", clipHidden(before[0].fillClip), before[0].fillClip);
+
+  // Entry on row 0: decode settles on the real text within one second; the heading never changes.
+  const top = await sectionTop(page);
+  const rowTop = await page.evaluate((s) => document.querySelector(s).getBoundingClientRect().top + window.scrollY, ROW(0));
+  await scrollToY(page, top - 900 + 200); // section header in view, row 0 still below the 85% trigger
+  await wait(200);
+  const t0 = Date.now();
+  await scrollToY(page, rowTop - 400);
+  let scrambled = false;
+  let headingStable = true;
+  let settledAt = null;
+  while (Date.now() - t0 < 2000) {
+    const r = (await plate(page))[0];
+    if (r.heading !== skills[0].label) headingStable = false;
+    if (r.visual !== skills[0].label) scrambled = true;
+    else if (scrambled && settledAt === null) settledAt = Date.now() - t0;
+    await wait(30);
+  }
+  check("expertise 1440: entry decode scrambles the visual label", scrambled);
+  check("expertise 1440: decode ends on the real text within 1s", settledAt !== null && settledAt <= 1000, `${settledAt}ms`);
+  check("expertise: accessible heading never scrambles", headingStable);
+
+  await scrollPlateThrough(page, 900);
+  const drawn = await plate(page);
+  check("expertise 1440: every label filled solid after entry", drawn.every((r) => r.fillVisible && clipFull(r.fillClip) && r.fillOpacity === 1), drawn.map((r) => r.fillClip).join(" | "));
+  check("expertise 1440: every visual label ends on its real text", drawn.every((r, i) => r.visual === skills[i].label));
+
+  // Signature moment: hover row 1 (12 items).
+  const count = skills[1].items.length;
+  const final = `${String(count).padStart(2, "0")} / ${String(count).padStart(2, "0")}`;
+  await page.locator(ROW(1)).scrollIntoViewIfNeeded();
+  await page.mouse.move(5, 5);
+  await wait(300);
+  const box = await page.locator(ROW(1)).boundingBox();
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  const readouts = new Set();
+  const t1 = Date.now();
+  while (Date.now() - t1 < 500) {
+    readouts.add((await plate(page))[1].readout);
+    await wait(15);
+  }
+  await wait(300);
+  const hovered = await plate(page);
+  check("expertise 1440 hover: row floods cream (inverse clip-path wiped to inset 0)", hovered[1].active && clipFull(hovered[1].inverseClip), hovered[1].inverseClip);
+  check(
+    "expertise 1440 hover: neighbours fall back to hollow outlines and dim",
+    hovered.every((r, i) => i === 1 || (r.fillOpacity === 0 && r.dim < 0.5 && clipHidden(r.inverseClip))),
+    hovered.map((r) => `${r.fillOpacity}/${r.dim}`).join(" "),
+  );
+  check("expertise 1440 hover: count ticks up through intermediate values to the total", [...readouts].some((v) => v !== final && !v.startsWith("00")) && hovered[1].readout === final, [...readouts].join(", "));
+
+  const vf = await page.evaluate(() => {
+    const root = document.querySelector("[data-viewfinder]");
+    return root ? { state: root.dataset.state, shown: +getComputedStyle(root).opacity, blend: getComputedStyle(root).mixBlendMode } : null;
+  });
+  check("expertise 1440 hover: viewfinder stays visible over the cream row (difference blend)", vf?.shown === 1 && vf.state !== "hidden" && vf.blend === "difference", JSON.stringify(vf));
+  check("expertise 1440: no horizontal overflow with a row inverted", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+
+  await page.mouse.move(box.x + box.width * 0.6, box.y - 400 > 60 ? box.y - 400 : 60); // up into the header area
+  await page.mouse.move(5, 70);
+  await wait(500);
+  const left = await plate(page);
+  check("expertise 1440: pointer leave reverts the row and the neighbours", left.every((r) => !r.active && clipHidden(r.inverseClip) && r.fillOpacity === 1));
+
+  // Keyboard: Tab from row 0 to row 1 moves the inversion; blur reverts.
+  await page.locator(ROW(0)).focus();
+  await wait(700);
+  const f0 = await plate(page);
+  await page.keyboard.press("Tab");
+  await wait(500);
+  const f1 = await plate(page);
+  check("expertise 1440 keyboard: focus inverts the row", f0[0].active && clipFull(f0[0].inverseClip), `${f0[0].active} ${f0[0].inverseClip}`);
+  check("expertise 1440 keyboard: Tab moves the inversion to the next row", f1[1].active && !f1[0].active && clipFull(f1[1].inverseClip) && f1[0].fillOpacity === 0);
+  await page.evaluate(() => document.activeElement.blur());
+  await wait(500);
+  check("expertise 1440 keyboard: blur reverts", (await plate(page)).every((r) => !r.active && clipHidden(r.inverseClip)));
+  await context.close();
+}
+
+async function expertiseReduced(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+  let scrambled = false;
+  const top = await sectionTop(page);
+  for (let y = top - 900; y <= top + 1200; y += 150) {
+    await scrollToY(page, y);
+    for (let k = 0; k < 4; k++) {
+      if ((await plate(page)).some((r, i) => r.visual !== skills[i].label)) scrambled = true;
+      await wait(25);
+    }
+  }
+  const s = await plate(page);
+  check("expertise reduced: no decode (labels never scramble)", !scrambled);
+  check("expertise reduced: labels solid at once, no wipe", s.every((r) => r.fillVisible && (r.fillClip === "none" || clipFull(r.fillClip))), s[0].fillClip);
+  check("expertise reduced: inversion has no transition (instant colour change)", s.every((r) => parseFloat(r.inverseTransition) < 0.01), s[0].inverseTransition);
+  await page.locator(ROW(1)).focus();
+  await wait(60);
+  const f = await plate(page);
+  const count = String(skills[1].items.length).padStart(2, "0");
+  check("expertise reduced: focus inverts at once, count shows the total (no tick)", f[1].active && clipFull(f[1].inverseClip) && f[1].readout === `${count} / ${count}`, `${f[1].inverseClip} ${f[1].readout}`);
+  await context.close();
+}
+
+async function expertiseTouch(browser, base, viewport) {
+  const tag = `expertise ${viewport.width} touch`;
+  const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
+  await scrollPlateThrough(page, viewport.height);
+  const drawn = await plate(page);
+  check(`${tag}: labels filled after entry, nothing active without a tap`, drawn.every((r) => r.fillVisible && clipFull(r.fillClip) && !r.active));
+  const tap = async (i) => {
+    await page.locator(ROW(i)).scrollIntoViewIfNeeded();
+    const b = await page.locator(ROW(i)).boundingBox();
+    await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    await wait(500);
+    return plate(page);
+  };
+  const on = await tap(5);
+  check(`${tag}: tap inverts the row (12 items)`, on[5].active && clipFull(on[5].inverseClip), on[5].inverseClip);
+  check(`${tag}: no horizontal overflow with a row inverted`, (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  const off = await tap(5);
+  check(`${tag}: second tap toggles it off`, !off[5].active && clipHidden(off[5].inverseClip));
+  await tap(4);
+  const moved = await tap(3);
+  check(`${tag}: tapping another row moves the inversion`, moved[3].active && !moved[4].active);
+  await context.close();
+}
+
+/** Wrapped item lines: no line starts or ends with a visible separator; dark and inverted layers break identically. */
+async function expertiseSeparators(browser, base, viewport, touch) {
+  const tag = `expertise ${viewport.width}`;
+  const { context, page } = await open(browser, base, { viewport, hasTouch: touch, isMobile: touch });
+  await scrollPlateThrough(page, viewport.height);
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-plate-row]")].map((row) =>
+      [...row.querySelectorAll("[data-plate-items]")].map((box) => {
+        const clip = box.getBoundingClientRect();
+        const lines = [];
+        for (const li of box.querySelectorAll("li")) {
+          const r = li.getBoundingClientRect();
+          const sep = li.querySelector("[data-plate-sep]").getBoundingClientRect();
+          // Visible part of the separator glyph box inside the clip.
+          const visible = Math.min(sep.right, clip.right) - Math.max(sep.left, clip.left) > 0.5;
+          const last = lines.at(-1);
+          const entry = { text: li.textContent.replace(/^\//, ""), sepVisible: visible, endsWithSep: li.lastChild.nodeType !== Node.TEXT_NODE, overflowsRight: r.right > clip.right + 0.5 };
+          if (last && Math.abs(last.top - r.top) < 2) last.items.push(entry);
+          else lines.push({ top: r.top, items: [entry] });
+        }
+        return lines.map((l) => l.items);
+      }),
+    ),
+  );
+  const bad = [];
+  rows.forEach((layers, i) =>
+    layers.forEach((lines, layer) =>
+      lines.forEach((items, n) => {
+        if (items[0].sepVisible) bad.push(`row ${i} layer ${layer} line ${n} starts with "/"`);
+        if (items.some((it) => it.endsWithSep)) bad.push(`row ${i} layer ${layer} line ${n} ends with "/"`);
+        if (items.slice(1).some((it) => !it.sepVisible)) bad.push(`row ${i} layer ${layer} line ${n} lost an inner "/"`);
+        if (items.some((it) => it.overflowsRight)) bad.push(`row ${i} layer ${layer} line ${n} overflows its column`);
+      }),
+    ),
+  );
+  check(`${tag}: no wrapped line starts or ends with a separator (both layers)`, bad.length === 0, bad.slice(0, 4).join("; ") || `${rows.reduce((n, l) => n + l[0].length, 0)} lines`);
+  const shape = (lines) => JSON.stringify(lines.map((l) => l.map((it) => it.text)));
+  check(`${tag}: dark and inverted layers break lines identically`, rows.every(([a, b]) => b && shape(a) === shape(b)));
+  check(`${tag}: 12-item rows wrap (multi-line check is meaningful)`, rows[1][0].length > 1 && rows[5][0].length > 1, `${rows[1][0].length} / ${rows[5][0].length} lines`);
+  await context.close();
+}
+
 /** Where the primary hero button sits in the first viewport. */
 async function fold(browser, base, viewport, required) {
   const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
@@ -502,6 +726,13 @@ await withProdServer(3100, async (base) => {
     await experienceDesktop(browser, base);
     await experienceReduced(browser, base);
     await experienceTouch(browser, base);
+    await expertiseDesktop(browser, base);
+    await expertiseReduced(browser, base);
+    await expertiseTouch(browser, base, { width: 390, height: 844 });
+    await expertiseTouch(browser, base, { width: 375, height: 812 });
+    await expertiseSeparators(browser, base, { width: 1440, height: 900 }, false);
+    await expertiseSeparators(browser, base, { width: 768, height: 1024 }, true);
+    await expertiseSeparators(browser, base, { width: 390, height: 844 }, true);
     await cursorDesktop(browser, base);
     await cursorAbsent(browser, base, "reduced motion 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     await cursorAbsent(browser, base, "touch 390", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });

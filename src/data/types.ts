@@ -190,6 +190,9 @@ export type UiCopy = {
   readonly present: string;
   /** Unit for the Experience section count, e.g. "03 ROLES". */
   readonly unitRoles: string;
+  /** Units for the Expertise section count, e.g. "06 GROUPS · 48 SKILLS". */
+  readonly unitGroups: string;
+  readonly unitSkills: string;
   /** Viewfinder cursor pill labels, keyed by the data-cursor value (see CLAUDE.md). */
   readonly cursor: { readonly view: string; readonly copy: string; readonly drag: string; readonly open: string };
 };
