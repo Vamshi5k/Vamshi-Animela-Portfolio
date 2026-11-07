@@ -199,7 +199,7 @@ export function ExperienceTimeline({ company }: Props) {
         {/* Fixed PRESENT station; its background masks the dashed segment so the line ends before the label. */}
         <span data-exp-station="present" className="absolute top-0 right-0 flex h-full flex-col items-end justify-between">
           <span className="type-mono-xs text-text">{ui.present}</span>
-          <span className="mb-[calc(1rem-6px)] size-3 bg-accent" />
+          <span className="mb-2.5 size-3 bg-accent" />
         </span>
       </div>
 
@@ -265,7 +265,7 @@ export function ExperienceTimeline({ company }: Props) {
                 )}
               >
                 {/* Mobile station marker on the vertical ruler. */}
-                <span aria-hidden="true" className="absolute top-1 -left-[5px] size-2 bg-text lg:hidden" />
+                <span aria-hidden="true" className="absolute top-1 -left-1.25 size-2 bg-text lg:hidden" />
                 {/* Station date: shown on mobile; on desktop the ruler shows it, so it stays for screen readers only. */}
                 <p className="type-mono-s text-muted lg:sr-only">{dates}</p>
                 <h3 className={clsx("mt-2 text-text lg:mt-0", isCurrent ? "type-display-m max-w-[14ch]" : "type-heading")}>
@@ -295,7 +295,7 @@ export function ExperienceTimeline({ company }: Props) {
         </ol>
         {/* Mobile: end of the dashed segment, fixed PRESENT marker (decorative; the dates say PRESENT). */}
         <div aria-hidden="true" data-exp-station="present-m" className="-mt-px flex items-center gap-3 lg:hidden">
-          <span className="-ml-[5px] size-3 bg-accent" />
+          <span className="-ml-1.25 size-3 bg-accent" />
           <span className="type-mono-xs text-text">{ui.present}</span>
         </div>
       </div>
