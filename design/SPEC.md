@@ -153,6 +153,8 @@ One system, used identically everywhere:
 6. **Header index.** The header's center shows the current section as `§03 / EXPERTISE`, updated by ScrollTrigger. The section rule and the header index are the same information, at two scales.
 7. **Arrow.** `↗` marks external links only (LinkedIn, GitHub, verified client URLs). `→` appears only on the primary hero button. Internal links otherwise use no arrow.
 
+8. **Viewfinder cursor.** With a mouse (fine pointer, hover, motion allowed) a 28px viewfinder (four hairline corner brackets and a centre crosshair, text colour) trails the native cursor with a lerped follow. It is hidden until the first pointer move and when the pointer leaves the window. The whole viewfinder (brackets, crosshair and label plate) uses difference blending, so it reads on cream type and on black. Elements set `data-cursor="view|copy|drag|open"`: the same four brackets slide outward to frame a Mono S label from `ui.cursor` on a dark plate (light, never lime) while the crosshair fades; `"none"` hides it, and it also hides over form fields. A press tightens it slightly. Only transform and opacity animate (motion tokens). It is decorative (`aria-hidden`), never intercepts the pointer, and does not exist on touch or under reduced motion; every target works without it.
+
 ## 5. Portrait treatment
 
 ### The photo
@@ -196,7 +198,7 @@ About is fully typographic (§1a). A detail crop beside the bio is only an optio
 | Big-number stat counters ("3+ years, 20+ projects") | Hero, About | None. "About three years" appears once, as text, in the fact sheet. |
 | Scroll-scrubbed text-opacity reveals | About, bio | Not used. About is intentionally calm. |
 | Variable-font "stretch on scroll" gimmick | Clients, Contact | Removed from Clients. Width animation exists once, on hover, in a fixed box (§1a width-axis rule). |
-| Cursor followers / magnetic buttons / custom cursors | Everywhere | Not used. Native cursor; hover states only. |
+| Cursor followers / magnetic buttons / custom cursors | Everywhere | No magnetic buttons. One custom cursor only, the viewfinder (§4.8): it keeps the native cursor, speaks the crop-mark language, carries meaning (labelled states) and is absent on touch and under reduced motion. |
 | Smooth-scroll libraries (scroll hijacking) | Global | Not used. Native scroll only, per the MOTION rule. |
 | Pulsing green "available" dot | Hero | Availability is a static mono line. |
 | Lime used as decoration | Everywhere | Strict accent budget (§4.5). |

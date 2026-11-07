@@ -30,11 +30,12 @@ const isIdentity = (t) => Math.abs(t.x) < 0.5 && Math.abs(t.y) < 0.5;
 const overflowX = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const scrollToY = (page, y) => page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), y);
 
-async function open(browser, base, options) {
+/** `ready`: selector that marks the page as hydrated (the home page header by default). */
+async function open(browser, base, options, ready = "header[data-ready]") {
   const context = await browser.newContext(options);
   const page = await context.newPage();
   await page.goto(base, { waitUntil: "networkidle" });
-  await page.waitForSelector("header[data-ready]");
+  await page.waitForSelector(ready);
   await wait(1800); // CSS entrance (≤ 1.4s) finished, GSAP set up
   return { context, page };
 }
@@ -380,6 +381,98 @@ async function experienceTouch(browser, base) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Viewfinder cursor (shared layer; demo targets live on /dev/design-system)
+// ---------------------------------------------------------------------------------------------
+
+const cursorState = (page) =>
+  page.evaluate(() => {
+    const root = document.querySelector("[data-viewfinder]");
+    if (!root) return null;
+    const m = new DOMMatrixReadOnly(getComputedStyle(root).transform);
+    const label = root.querySelector(".viewfinder-label");
+    const cross = root.querySelector(".viewfinder-cross");
+    const tl = new DOMMatrixReadOnly(getComputedStyle(root.querySelector('[data-corner="tl"]')).transform);
+    return {
+      state: root.dataset.state,
+      x: +m.m41.toFixed(1),
+      y: +m.m42.toFixed(1),
+      shown: +getComputedStyle(root).opacity,
+      cross: +getComputedStyle(cross).opacity,
+      // Top-left bracket offset: 0 as a ring, negative (outward) while framing a label.
+      frame: +tl.m41.toFixed(1),
+      pill: +getComputedStyle(label).opacity,
+      label: label.textContent,
+      pillColour: getComputedStyle(label).color,
+      pointerEvents: getComputedStyle(root).pointerEvents,
+    };
+  });
+
+const centreOf = (page, selector) =>
+  page.evaluate((s) => {
+    const r = document.querySelector(s).getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  }, selector);
+
+async function cursorDesktop(browser, base) {
+  const { context, page } = await open(browser, base.replace(/\/$/, "") + "/dev/design-system", { viewport: { width: 1440, height: 900 } }, "main");
+  const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim());
+
+  const initial = await cursorState(page);
+  check("cursor 1440: mounted with a mouse, hidden until the first pointer move", initial?.state === "hidden" && initial.shown === 0, JSON.stringify(initial));
+  check("cursor: never intercepts the pointer (pointer-events: none)", initial?.pointerEvents === "none");
+
+  await page.mouse.move(300, 300);
+  await wait(400);
+  await page.mouse.move(700, 500); // a jump: the viewfinder should trail, not snap
+  await wait(16);
+  const trailing = await cursorState(page);
+  await wait(700);
+  const settled = await cursorState(page);
+  const lag = Math.hypot(700 - trailing.x, 500 - trailing.y);
+  check("cursor 1440: trails the pointer with a lerped follow", lag > 2, `${lag.toFixed(1)}px behind one frame after a jump`);
+  check("cursor 1440: settles on the pointer as a ring", settled.state === "ring" && settled.shown === 1 && settled.cross === 1 && settled.pill === 0 && settled.frame === 0 && Math.abs(settled.x - 700) <= 1 && Math.abs(settled.y - 500) <= 1, JSON.stringify(settled));
+
+  for (const key of ["view", "copy", "drag", "open"]) {
+    await page.locator(`[data-cursor="${key}"]`).scrollIntoViewIfNeeded();
+    const c = await centreOf(page, `[data-cursor="${key}"]`);
+    await page.mouse.move(c.x, c.y, { steps: 4 });
+    await wait(450);
+    const s = await cursorState(page);
+    check(
+      `cursor: data-cursor="${key}" frames a ${key.toUpperCase()} label (brackets slide out; light, never lime)`,
+      s.state === key && s.pill === 1 && s.cross === 0 && s.frame < -2 && s.label === key.toUpperCase() && !s.pillColour.includes(accent),
+      `${s.state} "${s.label}" frame ${s.frame}px ${s.pillColour}`,
+    );
+  }
+
+  const none = await centreOf(page, '[data-cursor="none"]');
+  await page.mouse.move(none.x, none.y, { steps: 4 });
+  await wait(400);
+  const hiddenNone = await cursorState(page);
+  check('cursor: data-cursor="none" hides it', hiddenNone.state === "hidden" && hiddenNone.shown === 0);
+
+  const field = await centreOf(page, "[data-cursor-field]");
+  await page.mouse.move(field.x, field.y, { steps: 4 });
+  await wait(400);
+  check("cursor: hidden over text fields", (await cursorState(page)).state === "hidden");
+
+  await page.mouse.move(1438, 400, { steps: 4 });
+  await wait(700);
+  check("cursor 1440: no horizontal overflow at the right edge", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+async function cursorAbsent(browser, base, label, options) {
+  const { context, page } = await open(browser, base.replace(/\/$/, "") + "/dev/design-system", options, "main");
+  await page.mouse.move(100, 200);
+  await page.mouse.move(options.viewport.width - 5, 300, { steps: 4 });
+  await wait(400);
+  check(`cursor ${label}: no cursor element exists`, (await cursorState(page)) === null);
+  check(`cursor ${label}: no horizontal overflow`, (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
 /** Where the primary hero button sits in the first viewport. */
 async function fold(browser, base, viewport, required) {
   const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
@@ -409,6 +502,10 @@ await withProdServer(3100, async (base) => {
     await experienceDesktop(browser, base);
     await experienceReduced(browser, base);
     await experienceTouch(browser, base);
+    await cursorDesktop(browser, base);
+    await cursorAbsent(browser, base, "reduced motion 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+    await cursorAbsent(browser, base, "touch 390", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await cursorAbsent(browser, base, "touch 375", { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
   } finally {
     await browser.close();
   }

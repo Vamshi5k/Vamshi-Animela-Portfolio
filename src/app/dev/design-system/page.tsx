@@ -185,7 +185,7 @@ export default function DesignSystemPage() {
         <Block title={copy.crop}>
           <div className="grid gap-12 md:grid-cols-3">
             <CropMarks figure={0} caption={`${profile.location.city}, ${profile.location.country}`}>
-              <div className="aspect-[3/4] bg-surface" />
+              <div className="aspect-3/4 bg-surface" />
             </CropMarks>
             <PendingFrame what={ui.pendingWhat.screenshot} aspect="3 / 4" />
             <PendingFrame what={isTodo(bio) ? bio.todo : ""} aspect="3 / 4" placement="inside" />
@@ -224,6 +224,23 @@ export default function DesignSystemPage() {
                 <Grain opacity={0.12} />
               </div>
             </div>
+          </div>
+        </Block>
+
+        <Block title={copy.cursor}>
+          <div className="grid gap-4 md:grid-cols-3">
+            {(Object.keys(ui.cursor) as (keyof typeof ui.cursor)[]).map((key) => (
+              <div key={key} data-cursor={key} className="type-mono-s border border-rule px-6 py-10 text-muted">
+                {copy.cursorTarget} · {key}
+              </div>
+            ))}
+            <div data-cursor="none" className="type-mono-s border border-rule px-6 py-10 text-muted">
+              {copy.cursorNone}
+            </div>
+            <label className="type-mono-s flex flex-col gap-3 border border-rule px-6 py-6 text-muted">
+              {copy.cursorField}
+              <input data-cursor-field type="text" className="type-body border-b border-rule bg-transparent py-2 text-text" />
+            </label>
           </div>
         </Block>
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ViewfinderCursor } from "@/components/motion/ViewfinderCursor";
 import { profile } from "@/data/profile";
 import { ui } from "@/data/ui";
 import { fontVariables } from "@/lib/fonts";
@@ -20,6 +21,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {ui.skipToContent}
         </a>
         {children}
+        {/* Shared viewfinder cursor: mounts only with a mouse and motion allowed (SPEC §4.8). */}
+        <ViewfinderCursor />
       </body>
     </html>
   );

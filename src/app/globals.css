@@ -462,6 +462,114 @@
   }
 }
 
+/* Viewfinder cursor (SPEC §4.8, ViewfinderCursor.tsx). The wrapper follows the pointer via an inline
+   transform. Its four corner brackets are one object: in a labelled state they slide outward to frame
+   the label (transform only; --vf-ox/--vf-oy are set once per state change from the label's size).
+   The whole viewfinder uses difference blending so it reads on cream type and on black. Light, never lime. */
+@layer components {
+  .viewfinder {
+    --vf-ox: 0px;
+    --vf-oy: 0px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    pointer-events: none;
+    color: var(--color-text);
+    /* On the wrapper (not the ring): the fixed, z-indexed wrapper is its own stacking context, so only a
+       blend set here reaches the page. Brackets and label invert against whatever is underneath. */
+    mix-blend-mode: difference;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .viewfinder[data-state="hidden"] {
+    opacity: 0;
+  }
+  .viewfinder-ring {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 28px;
+    height: 28px;
+    translate: -50% -50%;
+    transition: scale var(--duration-fast) var(--ease-out);
+  }
+  .viewfinder-corner {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-color: currentColor;
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+  .viewfinder-corner[data-corner="tl"] {
+    transform: translate(calc(var(--vf-ox) * -1), calc(var(--vf-oy) * -1));
+  }
+  .viewfinder-corner[data-corner="tr"] {
+    transform: translate(var(--vf-ox), calc(var(--vf-oy) * -1));
+  }
+  .viewfinder-corner[data-corner="bl"] {
+    transform: translate(calc(var(--vf-ox) * -1), var(--vf-oy));
+  }
+  .viewfinder-corner[data-corner="br"] {
+    transform: translate(var(--vf-ox), var(--vf-oy));
+  }
+  /* Centre crosshair: two 7px hairlines. Fades out while a label is framed. */
+  .viewfinder-cross {
+    position: absolute;
+    inset: 0;
+    transition:
+      opacity var(--duration-fast) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
+  }
+  .viewfinder-cross::before,
+  .viewfinder-cross::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background: currentColor;
+    translate: -50% -50%;
+  }
+  .viewfinder-cross::before {
+    width: 7px;
+    height: 1px;
+  }
+  .viewfinder-cross::after {
+    width: 1px;
+    height: 7px;
+  }
+  /* Centring lives inside transform: the minifier drops a separate translate when transform is also set. */
+  .viewfinder-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    white-space: nowrap;
+    padding: 0.4rem 0.7rem;
+    background: var(--color-bg);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+    transition:
+      opacity var(--duration-fast) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
+  }
+
+  /* Labelled states (view, copy, drag, open): brackets frame the label, crosshair out, label in. */
+  .viewfinder:not([data-state="ring"], [data-state="hidden"]) .viewfinder-cross {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  .viewfinder:not([data-state="ring"], [data-state="hidden"]) .viewfinder-label {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  /* Press: the viewfinder tightens slightly. */
+  .viewfinder[data-pressed] .viewfinder-ring {
+    scale: 0.86;
+  }
+  .viewfinder[data-pressed] .viewfinder-label {
+    scale: 0.96;
+  }
+}
+
 /* Hero scroll indicator: a short segment travelling down a hairline track. Static under reduced motion. */
 @keyframes scroll-cue {
   from {

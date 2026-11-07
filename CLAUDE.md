@@ -62,6 +62,11 @@ Components must hide an element whose optional value is null: no empty link, no 
 - Fonts: `src/lib/fonts.ts` (Archivo with wdth, Instrument Sans wght only, IBM Plex Mono 400/500; latin). Archivo width is set with `font-stretch` (62%–125%).
 - Width-axis rule: animate Archivo's width only on large display text (Display M or larger) inside a fixed-size container sized for the widest state. Never on body text, labels or wrapping text. Static on touch and under prefers-reduced-motion. Currently used only for the Contact email hover.
 - Elements animated in by JS carry `data-reveal`; CSS hides them only when scripting is enabled and motion is allowed.
+- Viewfinder cursor (`src/components/motion/ViewfinderCursor.tsx`, mounted once in `layout.tsx`): the `data-cursor` contract.
+  - Put `data-cursor="view" | "copy" | "drag" | "open"` on an element to make the viewfinder brackets slide out and frame the matching label from `ui.cursor` in `src/data/ui.ts`. `data-cursor="none"` hides it. The nearest ancestor with the attribute wins.
+  - It hides automatically over inputs, textareas, selects and contenteditable elements. The native cursor always stays.
+  - It mounts only with a fine pointer, hover, and no reduced-motion preference. On touch or reduced motion it doesn't exist, so nothing may depend on it: every `data-cursor` target must work by keyboard and touch without it.
+  - Labels are light (text colour), never lime. Only transform and opacity animate; one rAF loop that stops when settled.
 - Motion split: first-paint entrances may be CSS keyframes, so above-the-fold content never waits for JavaScript (LCP); the hero uses the `hero-in-*` classes in `globals.css`. Scroll and pointer motion uses GSAP (via useGSAP, with cleanup). Both respect prefers-reduced-motion and use lighter motion on touch.
 
 ## TODO

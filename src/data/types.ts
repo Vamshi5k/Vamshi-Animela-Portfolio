@@ -190,6 +190,8 @@ export type UiCopy = {
   readonly present: string;
   /** Unit for the Experience section count, e.g. "03 ROLES". */
   readonly unitRoles: string;
+  /** Viewfinder cursor pill labels, keyed by the data-cursor value (see CLAUDE.md). */
+  readonly cursor: { readonly view: string; readonly copy: string; readonly drag: string; readonly open: string };
 };
 
 // sections.ts
