@@ -25,5 +25,15 @@ export const ui: UiCopy = {
     certificate: "CERTIFICATE",
     learning: "SELF-DIRECTED LEARNING",
   },
+  contact: {
+    copyAction: "Copy the email address",
+    copyHintPointer: "CLICK OR PRESS ENTER TO COPY",
+    copyHintTouch: "TAP TO COPY",
+    copied: "Copied",
+    copyFailed: "Couldn't copy. Use the mail link instead.",
+    mailto: "OPEN IN MAIL",
+    opensNewTab: "opens in a new tab",
+    whatsapp: "WhatsApp",
+  },
   cursor: { view: "VIEW", copy: "COPY", drag: "DRAG", open: "OPEN" },
 };

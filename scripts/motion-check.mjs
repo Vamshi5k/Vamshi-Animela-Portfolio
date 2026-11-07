@@ -900,6 +900,235 @@ async function aboutStatic(browser, base, label, options) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Contact (§07): proximity type, reserved width, copy paths, links, reduced motion, touch, no JS
+// ---------------------------------------------------------------------------------------------
+
+const EMAIL = "[data-email]";
+
+const emailState = (page) =>
+  page.evaluate(() => {
+    const box = document.querySelector(".contact-email-box");
+    const line = document.querySelector("[data-email]");
+    const letters = [...line.querySelectorAll("[data-letter]")];
+    return {
+      fitted: box.dataset.fitted,
+      box: box.getBoundingClientRect().toJSON(),
+      boxWidth: box.clientWidth,
+      line: line.getBoundingClientRect().width,
+      lineScroll: line.scrollWidth,
+      stretch: letters.map((l) => parseFloat(getComputedStyle(l).fontStretch)),
+      next: document.querySelector("[data-contact-link]").getBoundingClientRect().top,
+      doc: document.documentElement.scrollHeight,
+      ox: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+
+async function toContact(page) {
+  await page.evaluate(() => document.getElementById("contact").scrollIntoView({ behavior: "instant", block: "center" }));
+  await page.evaluate(() => document.fonts.ready);
+  await wait(500);
+}
+
+const copyStatus = (page) =>
+  page.evaluate(() => ({ state: document.querySelector("[data-copy-status]").dataset.copyStatus, live: document.querySelector("[data-copy-status]").textContent, visible: document.querySelector("[data-copy-visible]").textContent }));
+
+async function contactStructure(browser, base) {
+  const { contact } = await import("../src/data/contact.ts");
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  await toContact(page);
+  const a = await page.evaluate(() => {
+    const line = document.querySelector("[data-email]");
+    const letters = [...line.querySelectorAll("[data-letter]")];
+    return {
+      role: line.getAttribute("role"),
+      tab: line.getAttribute("tabindex"),
+      name: line.getAttribute("aria-label"),
+      cursor: line.dataset.cursor,
+      lettersHidden: letters.every((l) => l.getAttribute("aria-hidden") === "true"),
+      text: letters.map((l) => l.textContent).join(""),
+      mailto: document.querySelector("[data-mailto]")?.getAttribute("href"),
+      links: [...document.querySelectorAll("[data-contact-link]")].map((l) => ({ id: l.dataset.contactLink, href: l.getAttribute("href"), target: l.target, rel: l.rel })),
+    };
+  });
+  check("contact: email line is a focusable button named by the plain address", a.role === "button" && a.tab === "0" && a.name === contact.email);
+  check('contact: letters are aria-hidden real text (selectable, copyable) and data-cursor="copy"', a.lettersHidden && a.text === contact.email && a.cursor === "copy");
+  check("contact: plain mailto link", a.mailto === `mailto:${contact.email}`);
+  check(
+    "contact: LinkedIn and GitHub rows open safely in a new tab (noopener noreferrer)",
+    contact.socials.every((s) => a.links.some((l) => l.href === s.href && l.target === "_blank" && /noopener/.test(l.rel) && /noreferrer/.test(l.rel))),
+    JSON.stringify(a.links.map((l) => l.id)),
+  );
+  for (const s of contact.socials) {
+    const n = await page.getByRole("link", { name: new RegExp(`^${s.label}\\b.*opens in a new tab`) }).count();
+    check(`contact: "${s.label}" link has a clear accessible name (label + new tab)`, n === 1);
+  }
+  check("contact: no WhatsApp element while contact.whatsapp is null", contact.whatsapp !== null || !a.links.some((l) => l.id === "whatsapp"));
+  await context.close();
+}
+
+async function contactWave(browser, base, viewport) {
+  const tag = `contact ${viewport.width}`;
+  const { context, page } = await open(browser, base, { viewport });
+  await toContact(page);
+  await page.mouse.move(5, 5);
+  await wait(300);
+  const rest = await emailState(page);
+  check(`${tag}: wave mode, line fitted inside the box at rest`, rest.fitted === "wave" && rest.line <= rest.boxWidth && rest.stretch.every((s) => s === 75), `${Math.round(rest.line)} / ${rest.boxWidth}px`);
+
+  const lb = await page.locator(EMAIL).boundingBox();
+  const k = 10;
+  const kx = await page.evaluate((i) => {
+    const r = document.querySelectorAll("[data-letter]")[i].getBoundingClientRect();
+    return r.left + r.width / 2;
+  }, k);
+  await page.mouse.move(kx, lb.y + lb.height / 2, { steps: 6 });
+  await wait(600);
+  const on = await emailState(page);
+  check(`${tag}: letters near the pointer widen (wdth/wght follow distance), far letters stay at rest`, on.stretch[k] > 110 && on.stretch[on.stretch.length - 1] === 75 && on.stretch[0] === 75, `${on.stretch[k]}% at the pointer, ${on.stretch.at(-1)}% far`);
+
+  // Slow and fast sweeps: the line never exceeds the box and nothing around it moves.
+  let worst = 0;
+  let shifted = [];
+  const sweep = async (step, pause) => {
+    for (let x = lb.x - 60; x <= lb.x + lb.width + 60; x += step) {
+      await page.mouse.move(x, lb.y + lb.height * (0.3 + 0.4 * Math.random()));
+      await wait(pause);
+      const s = await emailState(page);
+      worst = Math.max(worst, s.lineScroll - s.boxWidth);
+      if (Math.abs(s.box.height - rest.box.height) > 0.5 || Math.abs(s.box.top - on.box.top) > 0.5 || Math.abs(s.next - on.next) > 0.5 || s.doc !== rest.doc || s.ox > 0) shifted.push(Math.round(x));
+    }
+  };
+  await sweep(14, 16);
+  await sweep(90, 0);
+  await sweep(40, 30);
+  check(`${tag}: the line never overflows its reserved box during slow and fast sweeps`, worst <= 0, `${worst}px over (≤ 0 passes)`);
+  check(`${tag}: layout never shifts (box, following rows, page height, no overflow)`, shifted.length === 0, shifted.slice(0, 5).join(", "));
+
+  await page.mouse.move(lb.x + lb.width / 2, lb.y - 300, { steps: 4 });
+  await wait(1200);
+  const off = await emailState(page);
+  check(`${tag}: wave relaxes on leave`, off.stretch.every((s) => s === 75), off.stretch.join(","));
+  check(`${tag}: no horizontal overflow`, off.ox <= 0, `${off.ox}px`);
+  await context.close();
+}
+
+/** Frame times of the wave at 4x CPU throttle (desktop). */
+async function contactFrames(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  await toContact(page);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  const lb = await page.locator(EMAIL).boundingBox();
+  await page.mouse.move(lb.x - 40, lb.y + lb.height / 2);
+  await page.evaluate(() => {
+    window.__frames = [];
+    let last = performance.now();
+    const end = last + 3000;
+    const rec = (now) => {
+      window.__frames.push(now - last);
+      last = now;
+      if (now < end) requestAnimationFrame(rec);
+    };
+    requestAnimationFrame(rec);
+  });
+  const t0 = Date.now();
+  let x = lb.x - 40;
+  let dir = 1;
+  while (Date.now() - t0 < 3000) {
+    x += dir * 24;
+    if (x > lb.x + lb.width + 40 || x < lb.x - 40) dir *= -1;
+    await page.mouse.move(x, lb.y + lb.height / 2);
+  }
+  await wait(200);
+  const f = (await page.evaluate(() => window.__frames)).slice(2).sort((a, b) => a - b);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  const pct = (p) => f[Math.min(f.length - 1, Math.floor(p * f.length))];
+  const over = f.filter((v) => v > 20).length / f.length;
+  info("contact wave @4x CPU: frame times", `${f.length} frames, p50 ${pct(0.5).toFixed(1)}ms, p95 ${pct(0.95).toFixed(1)}ms, max ${f.at(-1).toFixed(1)}ms, ${(over * 100).toFixed(1)}% over 20ms`);
+  check("contact wave @4x CPU: smooth (p95 frame ≤ 20ms)", pct(0.95) <= 20, `p95 ${pct(0.95).toFixed(1)}ms`);
+  await context.close();
+}
+
+async function contactCopy(browser, base) {
+  const { contact } = await import("../src/data/contact.ts");
+  const { ui } = await import("../src/data/ui.ts");
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
+  await toContact(page);
+
+  await page.locator(EMAIL).click();
+  await wait(300);
+  const ok = await copyStatus(page);
+  const clip = await page.evaluate(() => navigator.clipboard.readText());
+  check("contact copy: click writes the email to the clipboard and shows Copied", ok.state === "copied" && ok.live === ui.contact.copied && ok.visible === ui.contact.copied && clip === contact.email, `${ok.state}, clipboard "${clip}"`);
+
+  // "Copied" only after writeText resolves.
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = () => new Promise((r) => setTimeout(r, 600));
+  });
+  await page.locator(EMAIL).focus();
+  await page.keyboard.press("Enter");
+  await wait(150);
+  const pending = await copyStatus(page);
+  await wait(700);
+  const resolved = await copyStatus(page);
+  check("contact copy: Enter copies; Copied appears only after the write resolves", pending.live !== ui.contact.copied && resolved.state === "copied", `${pending.state} at 150ms → ${resolved.state}`);
+
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = () => Promise.reject(new Error("denied"));
+  });
+  await page.keyboard.press(" ");
+  await wait(200);
+  const failed = await copyStatus(page);
+  check("contact copy: Space copies; a rejected write shows the honest failure message", failed.state === "failed" && failed.live === ui.contact.copyFailed && failed.visible === ui.contact.copyFailed, failed.visible);
+
+  const focusOutline = await page.evaluate(() => getComputedStyle(document.querySelector("[data-email]")).outlineStyle);
+  check("contact: visible keyboard focus state on the email line", focusOutline !== "none", focusOutline);
+  await context.close();
+}
+
+async function contactStatic(browser, base, label, options) {
+  const { ui } = await import("../src/data/ui.ts");
+  const { context, page } = await open(browser, base, options, options.javaScriptEnabled === false ? "main" : undefined);
+  if (options.javaScriptEnabled !== false) await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: base });
+  await toContact(page);
+  const s = await emailState(page);
+  if (options.javaScriptEnabled === false) {
+    check(`contact ${label}: email visible and inside the width without JavaScript`, s.line > 0 && s.lineScroll <= s.boxWidth && s.ox <= 0, `${Math.round(s.line)} / ${s.boxWidth}px`);
+    await context.close();
+    return;
+  }
+  check(`contact ${label}: static email at rest width, fitted to fill the line`, s.fitted === "static" && s.line <= s.boxWidth && s.line >= s.boxWidth * 0.95 && s.stretch.every((v) => v === 75), `${Math.round(s.line)} / ${s.boxWidth}px`);
+  const lb = await page.locator(EMAIL).boundingBox();
+  if (options.hasTouch) {
+    await page.touchscreen.tap(lb.x + lb.width / 2, lb.y + lb.height / 2);
+  } else {
+    for (let x = lb.x; x < lb.x + lb.width; x += 60) await page.mouse.move(x, lb.y + lb.height / 2);
+    await wait(300);
+    const after = await emailState(page);
+    check(`contact ${label}: no wave (letters never change width)`, after.stretch.every((v) => v === 75));
+    await page.locator(EMAIL).click();
+  }
+  await wait(300);
+  const st = await copyStatus(page);
+  check(`contact ${label}: ${options.hasTouch ? "tap" : "click"} copies`, st.state === "copied" && st.visible === ui.contact.copied, st.state);
+  check(`contact ${label}: no horizontal overflow`, (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+async function contactTouchHint(browser, base, viewport) {
+  const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
+  await toContact(page);
+  const h = await page.evaluate(() => ({
+    pointer: getComputedStyle(document.querySelector(".contact-hint-pointer")).display,
+    touch: getComputedStyle(document.querySelector(".contact-hint-touch")).display,
+    rule: new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".contact-email-rule")).transform).a,
+  }));
+  check(`contact ${viewport.width} touch: tap hint shown, pointer hint hidden, underline drawn as the tap cue`, h.pointer === "none" && h.touch !== "none" && h.rule === 1, JSON.stringify(h));
+  await context.close();
+}
+
 /** Where the primary hero button sits in the first viewport. */
 async function fold(browser, base, viewport, required) {
   const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
@@ -943,6 +1172,17 @@ await withProdServer(3100, async (base) => {
     await aboutStatic(browser, base, "reduced 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     await aboutStatic(browser, base, "reduced 390", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: "reduce" });
     await aboutStatic(browser, base, "no JS", { viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
+    await contactStructure(browser, base);
+    await contactWave(browser, base, { width: 1440, height: 900 });
+    await contactWave(browser, base, { width: 1280, height: 800 });
+    await contactFrames(browser, base);
+    await contactCopy(browser, base);
+    await contactStatic(browser, base, "reduced 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+    await contactStatic(browser, base, "390 touch", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await contactStatic(browser, base, "375 touch", { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+    await contactTouchHint(browser, base, { width: 390, height: 844 });
+    await contactStatic(browser, base, "no JS 1440", { viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
+    await contactStatic(browser, base, "no JS 375", { viewport: { width: 375, height: 812 }, javaScriptEnabled: false });
     await cursorDesktop(browser, base);
     await cursorAbsent(browser, base, "reduced motion 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     await cursorAbsent(browser, base, "touch 390", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });

@@ -552,6 +552,81 @@
   }
 }
 
+/* Contact (SPEC §1a). The email line's size is solved in ContactEmail.tsx (--email-size) so the rest line
+   plus the reserved wave fills the box. Before that runs (and without JS) a conservative size from the
+   character count keeps the static line inside the width. Rest axes: wdth 75 / wght 500; the crest copy
+   (wdth 125 / wght 800) exists only to measure. Letters animate font-stretch and font-weight: the site's
+   one width animation (width-axis rule). */
+@utility type-contact-headline {
+  font-family: var(--font-display);
+  font-size: var(--text-display-l);
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  font-stretch: 100%;
+  text-wrap: balance;
+}
+
+@layer components {
+  .contact-email {
+    font-family: var(--font-display);
+    font-size: var(--email-size, calc(100cqi / (var(--chars) * 0.46)));
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-stretch: 75%;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .contact-email-crest {
+    font-stretch: 125%;
+    font-weight: 800;
+  }
+  /* Hairline under the email: draws on hover and keyboard focus; always shown on touch (tap target cue). */
+  .contact-email-rule {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -0.04em;
+    height: 2px;
+    background: var(--color-text);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+  .contact-email:hover .contact-email-rule,
+  .contact-email:focus-visible .contact-email-rule {
+    transform: scaleX(1);
+  }
+  /* Without the wave (touch, no fine pointer, reduced motion) the rule is always drawn as the tap cue. */
+  @media not ((hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)) {
+    .contact-email-rule {
+      transform: scaleX(1);
+    }
+  }
+  .contact-hint-touch {
+    display: none;
+  }
+  @media not ((hover: hover) and (pointer: fine)) {
+    .contact-hint-pointer {
+      display: none;
+    }
+    .contact-hint-touch {
+      display: inline;
+    }
+  }
+  .contact-email:focus-visible {
+    outline-offset: 0.12em;
+  }
+  /* Link rows: the arrow slides out toward its corner on hover or focus. */
+  .contact-arrow {
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+  a:hover > .contact-arrow,
+  a:focus-visible > .contact-arrow {
+    transform: translate(0.375rem, -0.375rem);
+  }
+}
+
 /* Viewfinder cursor (SPEC §4.8, ViewfinderCursor.tsx). The wrapper follows the pointer via an inline
    transform. Its four corner brackets are one object: in a labelled state they slide outward to frame
    the label (transform only; --vf-ox/--vf-oy are set once per state change from the label's size).

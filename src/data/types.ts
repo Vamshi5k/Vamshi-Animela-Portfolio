@@ -203,6 +203,21 @@ export type UiCopy = {
     readonly certificate: string;
     readonly learning: string;
   };
+  /** Contact: copy-to-clipboard states, the mailto link and link suffixes (SPEC §1a). */
+  readonly contact: {
+    /** Accessible description of the email line's action. */
+    readonly copyAction: string;
+    readonly copyHintPointer: string;
+    readonly copyHintTouch: string;
+    /** Shown only after the clipboard write resolves. */
+    readonly copied: string;
+    /** Shown when the clipboard write rejects. */
+    readonly copyFailed: string;
+    readonly mailto: string;
+    /** Screen-reader suffix on links that open in a new tab. */
+    readonly opensNewTab: string;
+    readonly whatsapp: string;
+  };
   /** Viewfinder cursor pill labels, keyed by the data-cursor value (see CLAUDE.md). */
   readonly cursor: { readonly view: string; readonly copy: string; readonly drag: string; readonly open: string };
 };
@@ -219,6 +234,8 @@ export type SectionMeta = {
 // contact.ts
 
 export type Contact = {
+  /** Contact section headline, above the email line. */
+  readonly headline: string;
   readonly email: string;
   readonly socials: readonly Link[];
   /** Optional, E.164 format when provided. When null, hide every WhatsApp element. */
