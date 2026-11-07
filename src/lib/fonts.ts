@@ -17,9 +17,9 @@ export const instrumentSans = Instrument_Sans({
   variable: "--font-instrument-sans",
 });
 
-/** Mono. Static 400 and 500. */
+/** Mono. Static 400 and 500. latin-ext carries the rupee sign (U+20B9) used in Services prices. */
 export const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
   weight: ["400", "500"],
   display: "swap",
   variable: "--font-plex-mono",

@@ -16,6 +16,12 @@ export const ui: UiCopy = {
   unitRoles: "ROLES",
   unitGroups: "GROUPS",
   unitSkills: "SKILLS",
+  unitServices: "SERVICES",
+  unitProjects: "PROJECTS",
+  unitClients: "CLIENTS",
+  workIndex: "Projects",
+  workLabels: { features: "FEATURES", tech: "TECH" },
+  clientsKicker: "FREELANCE CLIENTS",
   about: {
     experience: "EXPERIENCE",
     location: "LOCATION",

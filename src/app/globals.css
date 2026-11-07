@@ -339,10 +339,11 @@
 
 @layer components {
   @media (prefers-reduced-motion: no-preference) {
+    /* --intro: the preloader's hand-off time (0s when it does not run), so the hero enters as the frame lifts. */
     .hero-in {
       --f: 1;
       animation: var(--hero-anim) calc(var(--hero-dur) * var(--f)) var(--hero-ease, var(--ease-out))
-        calc(var(--d, 0s) * var(--f)) both;
+        calc(var(--d, 0s) * var(--f) + var(--intro, 0s)) both;
     }
     .hero-in-rise {
       --hero-anim: hero-rise;
@@ -624,6 +625,384 @@
   a:hover > .contact-arrow,
   a:focus-visible > .contact-arrow {
     transform: translate(0.375rem, -0.375rem);
+  }
+}
+
+/* Preloader (SPEC §4.9), the film leader. Hidden by default; only its animation shows it, then lifts it away.
+   It runs only with scripting on, motion allowed and a first visit this session (<html data-intro="seen"> is
+   set before paint on repeat visits), so reduced motion, no-JS and animation-free captures never see it.
+   --intro is when the frame starts to lift; the hero's CSS entrance is offset by it. --pl scales the whole
+   timeline (lighter on touch). Only clip-path, transform and opacity animate. */
+:root {
+  --intro: 0s;
+  --pl: 1;
+}
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  :root:not([data-intro="seen"]) {
+    --intro: 1.05s;
+  }
+  @media (pointer: coarse) {
+    :root:not([data-intro="seen"]) {
+      --intro: 0.63s;
+      --pl: 0.6;
+    }
+  }
+}
+
+@layer components {
+  .preloader {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: var(--color-bg);
+    pointer-events: none;
+    visibility: hidden;
+  }
+  .pl-mark {
+    position: absolute;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-color: var(--color-text);
+    border-style: solid;
+    border-width: 0;
+  }
+  .pl-mark-tl {
+    top: var(--margin);
+    left: var(--margin);
+    border-top-width: 1px;
+    border-left-width: 1px;
+    --mx: -0.75rem;
+    --my: -0.75rem;
+  }
+  .pl-mark-tr {
+    top: var(--margin);
+    right: var(--margin);
+    border-top-width: 1px;
+    border-right-width: 1px;
+    --mx: 0.75rem;
+    --my: -0.75rem;
+  }
+  .pl-mark-bl {
+    bottom: var(--margin);
+    left: var(--margin);
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    --mx: -0.75rem;
+    --my: 0.75rem;
+  }
+  .pl-mark-br {
+    bottom: var(--margin);
+    right: var(--margin);
+    border-bottom-width: 1px;
+    border-right-width: 1px;
+    --mx: 0.75rem;
+    --my: 0.75rem;
+  }
+  .pl-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-inline: var(--margin);
+  }
+  .pl-index {
+    color: var(--color-muted);
+  }
+  .pl-word {
+    margin-top: 0.75rem;
+    font-family: var(--font-display);
+    font-size: clamp(3.5rem, 13vw, 11rem);
+    line-height: 0.8;
+    letter-spacing: -0.01em;
+    font-weight: 800;
+    font-stretch: 62%;
+    text-transform: uppercase;
+    color: var(--color-text);
+    white-space: nowrap;
+  }
+  /* The one lime element on the screen: the rim light. */
+  .pl-rim {
+    display: block;
+    align-self: stretch;
+    height: 2px;
+    margin-top: 1rem;
+    background: var(--color-accent);
+    transform-origin: left;
+  }
+  .pl-coords {
+    margin-top: 1rem;
+    color: var(--color-muted);
+  }
+
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+    :root:not([data-intro="seen"]) .preloader {
+      animation: pl-frame calc(1.6s * var(--pl)) linear both;
+    }
+    :root:not([data-intro="seen"]) .pl-mark {
+      animation: pl-mark calc(var(--duration-slow) * var(--pl)) var(--ease-out) calc(0.05s * var(--pl)) both;
+    }
+    :root:not([data-intro="seen"]) .pl-index {
+      animation: pl-rise calc(var(--duration-base) * var(--pl)) var(--ease-out) calc(0.1s * var(--pl)) both;
+    }
+    :root:not([data-intro="seen"]) .pl-word {
+      animation: pl-gate calc(var(--duration-slow) * var(--pl)) var(--ease-out) calc(0.12s * var(--pl)) both;
+    }
+    :root:not([data-intro="seen"]) .pl-rim {
+      animation: pl-rim calc(var(--duration-slow) * var(--pl)) var(--ease-in-out) calc(0.38s * var(--pl)) both;
+    }
+    :root:not([data-intro="seen"]) .pl-coords {
+      animation: pl-rise calc(var(--duration-base) * var(--pl)) var(--ease-out) calc(0.52s * var(--pl)) both;
+    }
+  }
+}
+
+/* Visible from the first frame; holds; then the frame lifts away from the bottom edge (curtain up) from --intro. */
+@keyframes pl-frame {
+  0% {
+    visibility: visible;
+    clip-path: inset(0 0 0 0);
+  }
+  65.6% {
+    clip-path: inset(0 0 0 0);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  100% {
+    visibility: hidden;
+    clip-path: inset(0 0 100% 0);
+  }
+}
+@keyframes pl-mark {
+  from {
+    opacity: 0;
+    transform: translate(var(--mx), var(--my));
+  }
+}
+@keyframes pl-gate {
+  from {
+    clip-path: inset(50% 0 50% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes pl-rim {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes pl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+/* Selected Work (SPEC §1a): sticky index + scrolling stage; phones get a sticky number strip. */
+@layer components {
+  .work-index {
+    position: sticky;
+    top: calc(var(--header-h) + 2rem);
+  }
+  .work-strip {
+    position: sticky;
+    top: var(--header-h);
+    z-index: 5;
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .work-panel {
+    scroll-margin-top: calc(var(--header-h) + 3.5rem);
+    padding-block: 3.5rem;
+  }
+  @media (width >= 64rem) {
+    .work-panel {
+      scroll-margin-top: var(--header-h);
+      padding-block: 4rem 6rem;
+    }
+  }
+  .work-number {
+    font-family: var(--font-display);
+    font-size: var(--text-display-l);
+    line-height: 0.85;
+    font-weight: 700;
+    font-stretch: 75%;
+  }
+  .work-stamp {
+    border: 1px solid var(--color-rule);
+    padding: 0.25rem 0.5rem;
+    color: var(--color-text);
+  }
+}
+
+/* Clients (SPEC §1a): the centered credits roll; names wipe open from the center (clip-path, ClientsMotion). */
+@layer components {
+  .client-name {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: var(--text-display-m);
+    line-height: 0.95;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    font-stretch: 75%;
+    color: var(--color-text);
+    text-wrap: balance;
+    max-width: 16ch;
+  }
+  @media (width >= 64rem) {
+    .client-name {
+      font-size: var(--text-display-l);
+    }
+  }
+  .client-arrow {
+    display: inline-block;
+    color: var(--color-muted);
+    transition:
+      transform var(--duration-base) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  .client-link:hover .client-arrow,
+  .client-link:focus-visible .client-arrow {
+    color: var(--color-text);
+    transform: translate(0.08em, -0.08em);
+  }
+  .client-rule {
+    display: block;
+    width: 6rem;
+    height: 1px;
+    margin-top: 1.25rem;
+    background: var(--color-text);
+    transform-origin: center;
+  }
+}
+
+/* Services (SPEC §1a), the descending ladder. From 1024 each row's trigger starts one column further right
+   (--step). Opening a row compresses the others to a hairline with only their number, grows the open title
+   to Display L (Framer Motion layout transition) and draws its pictogram (stroke-dashoffset, CSS).
+   Closed panels are hidden only when scripting is on, so everything reads without JavaScript. */
+@layer components {
+  .svc-trigger {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-block: 1.25rem 1.5rem;
+    width: 100%;
+    cursor: pointer;
+  }
+  @media (width >= 64rem) {
+    .svc-trigger {
+      grid-column: calc(var(--step) + 1) / -1;
+    }
+  }
+  .svc-num {
+    color: var(--color-muted);
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .svc-trigger:hover .svc-num,
+  .svc-trigger:focus-visible .svc-num,
+  .svc-row[data-state="open"] .svc-num {
+    color: var(--color-text);
+  }
+  .svc-title {
+    display: block;
+    margin-top: 0.5rem;
+    font-family: var(--font-display);
+    font-size: var(--text-display-m);
+    line-height: 1;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+    font-stretch: 100%;
+    text-wrap: balance;
+    color: var(--color-text);
+  }
+  /* Open: one step up from Display M (Display L would run late, narrow ladder rows to four lines). */
+  .svc-row[data-state="open"] .svc-title {
+    font-size: calc(var(--text-display-m) * 1.35);
+    line-height: 0.95;
+  }
+  .svc-stamp {
+    margin-top: 0.75rem;
+    border: 1px solid var(--color-rule);
+    padding: 0.25rem 0.5rem;
+    color: var(--color-text);
+  }
+  /* Compressed: a hairline row with only its number (the title returns while the button has keyboard focus). */
+  .svc-row[data-state="compressed"] .svc-trigger {
+    padding-block: 0.5rem;
+  }
+  .svc-row[data-state="compressed"] .svc-trigger:not(:focus-visible) .svc-title,
+  .svc-row[data-state="compressed"] .svc-trigger:not(:focus-visible) .svc-stamp {
+    display: none;
+  }
+  .svc-panel {
+    padding-block: 0.5rem 3.5rem;
+  }
+  /* Desktop: the panel steps right with its row (up to three columns) so it stays under its title. */
+  @media (width >= 64rem) {
+    .svc-panel {
+      padding-inline-start: calc(min(var(--step), 3) * ((100% - 11 * var(--gutter)) / 12 + var(--gutter)));
+    }
+  }
+  .svc-panel-grid {
+    row-gap: 2rem;
+  }
+  @media (scripting: enabled) {
+    .svc-panel:not([data-open]) {
+      display: none;
+    }
+  }
+  .svc-picto-box {
+    width: 6rem;
+    aspect-ratio: 1;
+    color: var(--color-text);
+  }
+  @media (width >= 64rem) {
+    .svc-picto-box {
+      width: min(100%, 11rem);
+    }
+  }
+  .svc-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+    .svc-panel[data-open] .svc-draw {
+      animation: svc-draw var(--duration-slow) var(--ease-out) both;
+      animation-delay: calc(var(--i) * 90ms + 120ms);
+    }
+  }
+  @media (scripting: enabled) and (prefers-reduced-motion: no-preference) and (pointer: coarse) {
+    .svc-panel[data-open] .svc-draw {
+      animation-duration: calc(var(--duration-slow) * 0.6);
+      animation-delay: calc(var(--i) * 54ms + 72ms);
+    }
+  }
+  .svc-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3rem;
+    padding-inline: 1rem;
+    border: 1px solid var(--color-rule);
+    color: var(--color-text);
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+  .svc-cta:hover {
+    border-color: var(--color-text);
+  }
+  .svc-cta-arrow {
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+  .svc-cta:hover .svc-cta-arrow,
+  .svc-cta:focus-visible .svc-cta-arrow {
+    transform: translateX(0.25rem);
+  }
+}
+
+@keyframes svc-draw {
+  from {
+    stroke-dashoffset: 1;
   }
 }
 

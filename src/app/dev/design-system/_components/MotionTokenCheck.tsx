@@ -52,7 +52,7 @@ export function MotionTokenCheck() {
   }));
   return (
     <div className="overflow-x-auto">
-      <table className="type-mono-xs w-full min-w-[36rem] text-left">
+      <table className="type-mono-xs w-full min-w-xl text-left">
         <tbody>
           {[...durations, ...eases].map((r) => (
             <Row key={r.name} {...r} />

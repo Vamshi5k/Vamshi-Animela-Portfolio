@@ -132,6 +132,29 @@ export type Service = {
   readonly description: Content<string>;
 };
 
+/** A fixed price. Formatted by the component (rupee sign, Indian digit grouping); never hardcoded. */
+export type Money = { readonly amount: number; readonly currency: "INR" };
+
+/** A priced package within a service. Every term comes from the owner; unknown terms stay { todo }. */
+export type ServicePackage = {
+  readonly id: string;
+  readonly title: string;
+  /** A fixed price, or "on-request" (renders "Price on request", never a number or a blank). */
+  readonly price: Content<Money | "on-request">;
+  readonly included: Content<readonly Content<string>[]>;
+  readonly excluded: Content<readonly Content<string>[]>;
+  readonly delivery: Content<string>;
+};
+
+export type ServiceOffer = Service & {
+  /** Plain scope statement shown with the service (e.g. frontend only). Only set where it applies. */
+  readonly scopeNote?: string;
+  readonly deliverables: Content<readonly string[]>;
+  readonly technologies: Content<readonly string[]>;
+  /** Priced packages, or "on-request" when the whole service is priced on request. */
+  readonly pricing: Content<readonly ServicePackage[] | "on-request">;
+};
+
 // clients.ts
 
 export type Client = {
@@ -193,6 +216,16 @@ export type UiCopy = {
   /** Units for the Expertise section count, e.g. "06 GROUPS · 48 SKILLS". */
   readonly unitGroups: string;
   readonly unitSkills: string;
+  /** Units for the Work and Clients section counts, e.g. "04 PROJECTS", "04 CLIENTS". */
+  readonly unitProjects: string;
+  readonly unitClients: string;
+  /** Selected Work: accessible names of the project index (desktop list and phone strip). */
+  readonly workIndex: string;
+  readonly workLabels: { readonly features: string; readonly tech: string };
+  /** Clients: kicker above the credits roll. */
+  readonly clientsKicker: string;
+  /** Unit for the Services section count, e.g. "07 SERVICES". */
+  readonly unitServices: string;
   /** About fact-sheet labels (SPEC §1a). Learning is never labelled as a certificate. */
   readonly about: {
     readonly experience: string;

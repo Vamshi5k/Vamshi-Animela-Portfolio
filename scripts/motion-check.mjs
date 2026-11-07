@@ -38,8 +38,78 @@ async function open(browser, base, options, ready = "header[data-ready]") {
   const page = await context.newPage();
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForSelector(ready);
+  // First visit in a fresh context plays the preloader; the hero entrance is offset by it.
+  await page
+    .waitForFunction(() => {
+      const p = document.querySelector("[data-preloader]");
+      return !p || getComputedStyle(p).visibility === "hidden";
+    }, null, { timeout: 5000 })
+    .catch(() => {});
   await wait(1800); // CSS entrance (≤ 1.4s) finished, GSAP set up
   return { context, page };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Preloader (film leader): first visit only, CSS-only, never blocks, never for reduced motion / no JS
+// ---------------------------------------------------------------------------------------------
+
+const preloaderState = (page) =>
+  page.evaluate(() => {
+    const p = document.querySelector("[data-preloader]");
+    const cs = getComputedStyle(p);
+    return { visible: cs.visibility === "visible", hidden: p.getAttribute("aria-hidden"), events: cs.pointerEvents, intro: document.documentElement.dataset.intro ?? null };
+  });
+
+async function preloaderChecks(browser, base) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const t0 = Date.now();
+  await page.goto(base, { waitUntil: "commit" });
+  await page.waitForSelector("[data-preloader]", { state: "attached" });
+  const early = await preloaderState(page);
+  const earlyAt = Date.now() - t0;
+  check("preloader: shows on the first visit, aria-hidden and never blocks input", early.visible && early.hidden === "true" && early.events === "none", `${JSON.stringify(early)} at ~${earlyAt}ms`);
+  await page.waitForFunction(() => getComputedStyle(document.querySelector("[data-preloader]")).visibility === "hidden", null, { timeout: 4000 }).catch(() => {});
+  const goneAt = Date.now() - t0;
+  check("preloader: lifts away within about 2 seconds", goneAt < 2600, `hidden at ~${goneAt}ms`);
+  // The hero entrance is still running just after the lift (offset by --intro), then settles.
+  await page.reload({ waitUntil: "commit" });
+  await page.waitForSelector("[data-preloader]", { state: "attached" });
+  let seenVisible = false;
+  for (let i = 0; i < 10; i++) {
+    if ((await preloaderState(page)).visible) seenVisible = true;
+    await wait(60);
+  }
+  const again = await preloaderState(page);
+  check("preloader: skipped on a repeat visit in the same session", !seenVisible && again.intro === "seen");
+  await context.close();
+
+  for (const [label, options] of [
+    ["reduced motion", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" }],
+    ["no JS", { viewport: { width: 1440, height: 900 }, javaScriptEnabled: false }],
+  ]) {
+    const c = await browser.newContext(options);
+    const pg = await c.newPage();
+    await pg.goto(base, { waitUntil: "commit" });
+    await pg.waitForSelector("[data-preloader]", { state: "attached" });
+    let visible = false;
+    for (let i = 0; i < 10; i++) {
+      if ((await preloaderState(pg)).visible) visible = true;
+      await wait(60);
+    }
+    check(`preloader: never shown under ${label}`, !visible);
+    await c.close();
+  }
+
+  const touch = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const tp = await touch.newPage();
+  const t1 = Date.now();
+  await tp.goto(base, { waitUntil: "commit" });
+  await tp.waitForSelector("[data-preloader]", { state: "attached" });
+  await tp.waitForFunction(() => getComputedStyle(document.querySelector("[data-preloader]")).visibility === "hidden", null, { timeout: 4000 }).catch(() => {});
+  check("preloader 390 touch: shorter (lighter motion on touch)", Date.now() - t1 < 1800, `hidden at ~${Date.now() - t1}ms`);
+  check("preloader 390: no horizontal overflow", (await overflowX(tp)) <= 0, `${await overflowX(tp)}px`);
+  await touch.close();
 }
 
 async function desktop(browser, base) {
@@ -1292,6 +1362,235 @@ async function footerNoJs(browser, base) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Services (§04): disclosure ladder, compress to hairlines, pictogram draw, prices, inquiry CTA
+// ---------------------------------------------------------------------------------------------
+
+const svcState = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll("[data-service]")].map((row) => {
+      const btn = row.querySelector("button[aria-expanded]");
+      const panel = document.getElementById(btn.getAttribute("aria-controls"));
+      const title = row.querySelector(".svc-title");
+      const strokes = [...row.querySelectorAll(".svc-draw")].map((p) => parseFloat(getComputedStyle(p).strokeDashoffset));
+      return {
+        id: row.dataset.service,
+        state: row.dataset.state,
+        expanded: btn.getAttribute("aria-expanded"),
+        panelOk: !!panel && panel.getAttribute("role") === "region" && panel.getAttribute("aria-labelledby") === btn.id,
+        panelShown: !!panel && getComputedStyle(panel).display !== "none" && panel.offsetHeight > 0,
+        titleShown: getComputedStyle(title).display !== "none",
+        title: title.textContent,
+        scopeNote: row.querySelector("[data-scope-note]")?.textContent ?? null,
+        prices: [...row.querySelectorAll("[data-price]")].map((p) => p.textContent),
+        strokes,
+      };
+    }),
+  );
+
+const svcButton = (page, id) => page.locator(`[data-service="${id}"] button[aria-expanded]`);
+
+async function servicesDesktop(browser, base) {
+  const { services, serviceCopy } = await import("../src/data/services.ts");
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  await page.evaluate(() => document.getElementById("services").scrollIntoView({ behavior: "instant" }));
+  await wait(300);
+  const s0 = await svcState(page);
+  check("services: one disclosure row per service, in data order", JSON.stringify(s0.map((r) => r.title)) === JSON.stringify(services.map((s) => s.title)), `${s0.length} rows`);
+  check("services: buttons have aria-expanded and aria-controls a labelled region", s0.every((r) => r.expanded === "false" && r.panelOk));
+  check("services: all closed at rest, no panel shown", s0.every((r) => r.state === "closed" && !r.panelShown && r.titleShown));
+  check(
+    'services: only the Expo row carries "Frontend UI only. No backend."',
+    s0.filter((r) => r.scopeNote !== null).map((r) => r.id).join() === "expo-app" && s0.find((r) => r.id === "expo-app").scopeNote === serviceCopy.frontendUiOnly,
+  );
+  const text = await page.evaluate(() => document.getElementById("services").textContent);
+  check("services: no raw TODO text rendered", !/todo/i.test(text));
+
+  await svcButton(page, "business-websites").click();
+  await wait(120);
+  const drawing = await svcState(page);
+  await wait(1500);
+  const s1 = await svcState(page);
+  const web = s1.find((r) => r.id === "business-websites");
+  check("services: opening a row expands it and compresses every other row to a hairline (number only)", web.state === "open" && web.expanded === "true" && web.panelShown && s1.every((r) => r.id === web.id || (r.state === "compressed" && !r.titleShown && !r.panelShown)));
+  check("services: the pictogram draws by stroke (partly drawn, then fully drawn)", drawing.find((r) => r.id === web.id).strokes.some((o) => o > 0.05) && web.strokes.every((o) => o === 0), drawing.find((r) => r.id === web.id).strokes.map((o) => o.toFixed(2)).join(","));
+  check("services: prices in rupees with Indian grouping (₹10,000, ₹15,000)", JSON.stringify(web.prices) === JSON.stringify(["₹10,000", "₹15,000"]), web.prices.join(" | "));
+  const terms = await page.evaluate(() => [...document.querySelectorAll('[data-service="business-websites"] [data-package] dd')].map((d) => d.textContent));
+  check("services: included / excluded / delivery terms sit directly under the price", terms.includes("Domain") && terms.includes("Deployment and hosting, charged separately") && terms.includes("3 days"), terms.join(" | "));
+
+  // The rupee glyph renders in IBM Plex Mono, not a fallback.
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("DOM.enable");
+  await cdp.send("CSS.enable");
+  const { root } = await cdp.send("DOM.getDocument", { depth: -1 });
+  const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector: '[data-package="static-single"] [data-price]' });
+  const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
+  check("services: ₹ renders in IBM Plex Mono (no fallback font)", fonts.length === 1 && /IBM Plex Mono/.test(fonts[0].familyName) && fonts[0].isCustomFont, JSON.stringify(fonts.map((f) => f.familyName)));
+
+  // One open at a time.
+  await svcButton(page, "react-native").click();
+  await wait(1200);
+  const s2 = await svcState(page);
+  check("services: one open at a time; an on-request service shows \"Price on request\"", s2.filter((r) => r.state === "open").map((r) => r.id).join() === "react-native" && s2.find((r) => r.id === "react-native").prices.join() === serviceCopy.priceOnRequest);
+
+  // Keyboard: Escape closes and returns focus; Enter and Space toggle; a compressed row shows its title on focus.
+  await page.keyboard.press("Escape");
+  await wait(300);
+  const esc = await page.evaluate(() => ({ focus: document.activeElement?.closest("[data-service]")?.dataset.service, open: document.querySelectorAll('[data-state="open"]').length }));
+  check("services keyboard: Escape closes and returns focus to the row's button", esc.open === 0 && esc.focus === "react-native", JSON.stringify(esc));
+  await page.keyboard.press("Enter");
+  await wait(300);
+  const enter = (await svcState(page)).find((r) => r.id === "react-native").state;
+  await page.keyboard.press("Tab"); // into the open panel's CTA? walk to the next row's button
+  let guard = 0;
+  while (guard++ < 6 && !(await page.evaluate(() => document.activeElement?.matches("button[aria-expanded]")))) await page.keyboard.press("Tab");
+  const focusedRow = await page.evaluate(() => {
+    const row = document.activeElement.closest("[data-service]");
+    return { id: row.dataset.service, state: row.dataset.state, title: getComputedStyle(row.querySelector(".svc-title")).display };
+  });
+  check("services keyboard: Enter opens; a compressed row reveals its title while focused", enter === "open" && focusedRow.state === "compressed" && focusedRow.title !== "none", JSON.stringify(focusedRow));
+  await page.keyboard.press(" ");
+  await wait(300);
+  check("services keyboard: Space opens the focused row", (await svcState(page)).find((r) => r.id === focusedRow.id).state === "open");
+  check("services 1440: no horizontal overflow with a row open", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+
+  // Inquiry CTA: stores the service and scrolls to Contact.
+  if ((await svcButton(page, "business-websites").getAttribute("aria-expanded")) !== "true") await svcButton(page, "business-websites").click();
+  await wait(600);
+  await page.locator('[data-inquire="business-websites"]').click();
+  await wait(2200);
+  const inq = await page.evaluate(() => ({ stored: sessionStorage.getItem("vamshi.inquiry"), focus: document.activeElement?.id, top: Math.round(document.getElementById("contact").getBoundingClientRect().top) }));
+  check("services: inquiry CTA stores the service in shared state and scrolls to #contact (focus moves there)", inq.stored === "business-websites" && inq.focus === "contact" && Math.abs(inq.top) < 120, JSON.stringify(inq));
+  await context.close();
+}
+
+async function servicesReduced(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+  await page.evaluate(() => document.getElementById("services").scrollIntoView({ behavior: "instant" }));
+  await svcButton(page, "expo-app").click();
+  await wait(60);
+  const expo = (await svcState(page)).find((r) => r.id === "expo-app");
+  check("services reduced: pictogram appears fully drawn at once", expo.state === "open" && expo.strokes.length > 0 && expo.strokes.every((o) => o === 0), expo.strokes.join(","));
+  await context.close();
+}
+
+async function servicesTouch(browser, base, viewport) {
+  const tag = `services ${viewport.width} touch`;
+  const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
+  const tap = async (id) => {
+    const btn = svcButton(page, id);
+    await btn.scrollIntoViewIfNeeded();
+    const b = await btn.boundingBox();
+    await page.touchscreen.tap(b.x + 20, b.y + b.height / 2);
+    await wait(900);
+    return (await svcState(page)).find((r) => r.id === id);
+  };
+  const on = await tap("expo-app");
+  check(`${tag}: tap opens a row`, on.state === "open" && on.panelShown);
+  check(`${tag}: no horizontal overflow with a row open`, (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  const off = await tap("expo-app");
+  check(`${tag}: tapping again closes it`, off.state === "closed" && !off.panelShown);
+  await context.close();
+}
+
+async function servicesNoJs(browser, base) {
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 }, javaScriptEnabled: false }, "main");
+  const s = await svcState(page);
+  check("services no JS: every panel is visible (readable without JavaScript)", s.length > 0 && s.every((r) => r.panelShown));
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Selected Work (§01) and Clients (§05)
+// ---------------------------------------------------------------------------------------------
+
+async function workDesktop(browser, base) {
+  const { projects, projectCopy } = await import("../src/data/projects.ts");
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  const s = await page.evaluate(() => ({
+    panels: [...document.querySelectorAll("[data-work-panel]")].map((p) => p.dataset.workPanel),
+    index: [...document.querySelectorAll("[data-work-index]")].map((a) => a.dataset.workIndex),
+    text: document.getElementById("work").textContent,
+    stamps: [...document.querySelectorAll("#work .work-stamp")].map((e) => e.closest("[data-work-panel], [data-work-index]")?.getAttribute("data-work-panel") ?? e.closest("[data-work-index]")?.dataset.workIndex),
+  }));
+  check("work: one panel and one index row per project, in data order", JSON.stringify(s.panels) === JSON.stringify(projects.map((p) => p.slug)) && JSON.stringify(s.index) === JSON.stringify(s.panels));
+  const noBackend = projects.filter((p) => p.hasBackend === false).map((p) => p.slug);
+  check(`work: "${projectCopy.frontendOnly}" shown in both the index row and the panel of every frontend-only project`, noBackend.every((slug) => s.stamps.filter((x) => x === slug).length === 2) && s.stamps.length === noBackend.length * 2, s.stamps.join(","));
+  check("work: no raw TODO text rendered", !/todo/i.test(s.text));
+  const active = async (slug) => {
+    await page.evaluate((id) => document.getElementById(`work-${id}`).scrollIntoView({ behavior: "instant", block: "center" }), slug);
+    await wait(700);
+    return page.evaluate(() => document.querySelector('[data-work-index][aria-current="true"]')?.dataset.workIndex);
+  };
+  const order = [];
+  for (const p of projects) order.push(await active(p.slug));
+  check("work: the index marks the project crossing the middle of the viewport", JSON.stringify(order) === JSON.stringify(projects.map((p) => p.slug)), order.join(","));
+  const sticky = await page.evaluate(() => Math.round(document.querySelector(".work-index").getBoundingClientRect().top));
+  check("work: the index stays sticky under the header while the panels scroll", sticky > 0 && sticky < 200, `top ${sticky}px`);
+  check("work 1440: no horizontal overflow", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+async function workPhone(browser, base, viewport) {
+  const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
+  await page.locator('.work-strip a[href="#work-venue-booking"]').tap();
+  await wait(1500);
+  const s = await page.evaluate(() => ({ current: document.querySelector('.work-strip a[aria-current="true"]')?.getAttribute("href"), top: Math.round(document.getElementById("work-venue-booking").getBoundingClientRect().top) }));
+  check(`work ${viewport.width} touch: the number strip jumps to a panel and marks it`, s.current === "#work-venue-booking" && s.top > 0 && s.top < 260, JSON.stringify(s));
+  check(`work ${viewport.width}: no horizontal overflow`, (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+const clientState = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll("[data-client]")].map((li) => {
+      const name = li.querySelector("[data-client-name]");
+      const link = li.querySelector("a");
+      return {
+        id: li.dataset.client,
+        clip: getComputedStyle(name).clipPath,
+        visible: getComputedStyle(name).visibility === "visible",
+        rule: new DOMMatrixReadOnly(getComputedStyle(li.querySelector("[data-client-rule]")).transform).a,
+        link: link ? { href: link.getAttribute("href"), target: link.target, rel: link.rel } : null,
+      };
+    }),
+  );
+
+async function clientsDesktop(browser, base) {
+  const { clients } = await import("../src/data/clients.ts");
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  const before = await clientState(page);
+  check("clients: one centered entry per client, in data order", JSON.stringify(before.map((c) => c.id)) === JSON.stringify(clients.map((c) => c.id)));
+  check(
+    "clients: verified live URLs are links opening safely in a new tab; unverified ones are not links",
+    clients.every((c, i) => (c.urlVerified && c.liveUrl ? before[i].link?.href === c.liveUrl && before[i].link.target === "_blank" && /noopener/.test(before[i].link.rel) && /noreferrer/.test(before[i].link.rel) : before[i].link === null)),
+  );
+  check("clients: names wait clipped to their center line below the fold", clipHidden(before.at(-1).clip) || before.at(-1).clip.includes("50%"), before.at(-1).clip);
+  const top = await page.evaluate(() => document.getElementById("clients").getBoundingClientRect().top + scrollY);
+  const h = await page.evaluate(() => document.getElementById("clients").offsetHeight);
+  for (let y = top - 900; y <= top + h; y += 150) {
+    await scrollToY(page, y);
+    await wait(60);
+  }
+  await wait(900);
+  const after = await clientState(page);
+  check("clients: every name is wiped open from the center and its hairline drawn", after.every((c) => c.visible && clipFull(c.clip) && c.rule > 0.99), after.map((c) => `${c.clip} ${c.rule.toFixed(2)}`).join(" | "));
+  const text = await page.evaluate(() => document.getElementById("clients").textContent);
+  check("clients: no raw TODO text rendered", !/todo/i.test(text));
+  check("clients 1440: no horizontal overflow", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+async function clientsStatic(browser, base, label, options) {
+  const { context, page } = await open(browser, base, options, options.javaScriptEnabled === false ? "main" : undefined);
+  await page.evaluate(() => document.getElementById("clients").scrollIntoView({ behavior: "instant" }));
+  await wait(400);
+  const s = await clientState(page);
+  check(`clients ${label}: names visible and unclipped`, s.every((c) => c.visible && (c.clip === "none" || clipFull(c.clip))), s.map((c) => c.clip).join(" | "));
+  check(`clients ${label}: no horizontal overflow`, (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
 /** Where the primary hero button sits in the first viewport. */
 async function fold(browser, base, viewport, required) {
   const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
@@ -1308,6 +1607,7 @@ async function fold(browser, base, viewport, required) {
 await withProdServer(3100, async (base) => {
   const browser = await chromium.launch({ args: ["--disable-lcd-text"] }); // see shots.mjs
   try {
+    await preloaderChecks(browser, base);
     await desktop(browser, base);
     await noMotion(browser, base, "1440 reduced motion", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     await noMotion(browser, base, "390 touch", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -1356,6 +1656,18 @@ await withProdServer(3100, async (base) => {
     await footerFlow(browser, base, "375 touch", { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true }, "rise");
     await footerFlow(browser, base, "1280x300 (too short)", { viewport: { width: 1280, height: 300 } }, "rise");
     await footerNoJs(browser, base);
+    await servicesDesktop(browser, base);
+    await servicesReduced(browser, base);
+    await servicesTouch(browser, base, { width: 390, height: 844 });
+    await servicesTouch(browser, base, { width: 375, height: 812 });
+    await servicesNoJs(browser, base);
+    await workDesktop(browser, base);
+    await workPhone(browser, base, { width: 390, height: 844 });
+    await workPhone(browser, base, { width: 375, height: 812 });
+    await clientsDesktop(browser, base);
+    await clientsStatic(browser, base, "reduced 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+    await clientsStatic(browser, base, "no JS 1440", { viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
+    await clientsStatic(browser, base, "no JS 375", { viewport: { width: 375, height: 812 }, javaScriptEnabled: false });
     await cursorDesktop(browser, base);
     await cursorAbsent(browser, base, "reduced motion 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     await cursorAbsent(browser, base, "touch 390", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
