@@ -504,6 +504,54 @@
   }
 }
 
+/* About manuscript (SPEC §1a). The pull quote is Display L in sentence case (Archivo wdth 66 / wght 500,
+   condensed so the bio lead sets in 4 lines from 1024 to 1440 without shrinking the size); the years numeral is a giant outline; the caret blinks at the quote's end
+   (static under reduced motion via the global reset). */
+@utility type-quote {
+  font-family: var(--font-display);
+  font-size: var(--text-display-l);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  font-stretch: 66%;
+  text-wrap: pretty;
+}
+
+@utility type-numeral {
+  font-family: var(--font-display);
+  /* Larger than Display XL: the numeral fills the fact sheet height at desktop. */
+  font-size: clamp(9rem, 26vw, 22rem);
+  line-height: 0.8;
+  font-weight: 800;
+  font-stretch: 62%;
+}
+
+@layer components {
+  /* Numeral outline: 1.5px on phones and tablets, 2px on desktop (it carries a 352px glyph there). */
+  .about-outline {
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--color-text);
+
+    @media (width >= 64rem) {
+      -webkit-text-stroke-width: 2px;
+    }
+  }
+  .about-caret {
+    display: inline-block;
+    width: 0.07em;
+    height: 0.74em;
+    margin-left: 0.12em;
+    background: var(--color-text);
+    animation: caret-blink 1.06s steps(1) infinite;
+  }
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 /* Viewfinder cursor (SPEC §4.8, ViewfinderCursor.tsx). The wrapper follows the pointer via an inline
    transform. Its four corner brackets are one object: in a labelled state they slide outward to frame
    the label (transform only; --vf-ox/--vf-oy are set once per state change from the label's size).

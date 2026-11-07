@@ -173,7 +173,7 @@ export type UiCopy = {
   readonly skipToContent: string;
   /** Prefix of every pending placeholder: "PENDING — <what>". */
   readonly pending: string;
-  readonly pendingWhat: { readonly screenshot: string };
+  readonly pendingWhat: { readonly screenshot: string; readonly bio: string };
   /** Figure caption prefix: "FIG. 00". */
   readonly figure: string;
   /** Mobile menu toggle labels. */
@@ -193,6 +193,16 @@ export type UiCopy = {
   /** Units for the Expertise section count, e.g. "06 GROUPS · 48 SKILLS". */
   readonly unitGroups: string;
   readonly unitSkills: string;
+  /** About fact-sheet labels (SPEC §1a). Learning is never labelled as a certificate. */
+  readonly about: {
+    readonly experience: string;
+    readonly location: string;
+    readonly languages: string;
+    readonly education: string;
+    readonly credentials: string;
+    readonly certificate: string;
+    readonly learning: string;
+  };
   /** Viewfinder cursor pill labels, keyed by the data-cursor value (see CLAUDE.md). */
   readonly cursor: { readonly view: string; readonly copy: string; readonly drag: string; readonly open: string };
 };

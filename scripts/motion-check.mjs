@@ -697,6 +697,209 @@ async function expertiseSeparators(browser, base, viewport, touch) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------
+// About manuscript (§06): bio split, read-through scrub, caret, type-in, contrast, reduced, touch
+// ---------------------------------------------------------------------------------------------
+
+const norm = (s) => s.replace(/\s+/g, " ").trim();
+const BG = [9, 9, 9];
+const lum = ([r, g, b]) => {
+  const c = (v) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b);
+};
+const contrast = (a, b) => {
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/** Per-word opacity (including ancestors) and effective colour blended over the page background. */
+const reading = (page) =>
+  page.evaluate(() => {
+    const words = [...document.querySelectorAll("[data-read-word]")].map((el) => {
+      let o = 1;
+      for (let n = el; n && n !== document.body; n = n.parentElement) o *= +getComputedStyle(n).opacity;
+      const rgb = getComputedStyle(el).color.match(/[\d.]+/g).slice(0, 3).map(Number);
+      return { o: +o.toFixed(3), rgb };
+    });
+    const lines = [...document.querySelectorAll("[data-type-line]")].map((el) => ({ clip: getComputedStyle(el).clipPath, visible: getComputedStyle(el).visibility === "visible" }));
+    const caret = document.querySelector("[data-caret]");
+    const cs = getComputedStyle(caret);
+    const last = document.querySelectorAll("[data-read-word]");
+    const lr = last[last.length - 1].getBoundingClientRect();
+    const cr = caret.getBoundingClientRect();
+    return {
+      words,
+      lines,
+      numeralClip: getComputedStyle(document.querySelector("[data-numeral]")).clipPath,
+      caret: {
+        hidden: caret.getAttribute("aria-hidden") === "true",
+        afterLast: cr.left >= lr.right - 1 && Math.abs(cr.bottom - lr.bottom) < lr.height,
+        animation: cs.animationName,
+        duration: parseFloat(cs.animationDuration),
+        iterations: cs.animationIterationCount,
+        opacity: +cs.opacity,
+      },
+      pinned: !!document.querySelector(".pin-spacer"),
+    };
+  });
+
+const readCount = (r) => r.words.filter((w) => w.o > 0.99).length;
+const blended = (w) => w.rgb.map((c, i) => c * w.o + BG[i] * (1 - w.o));
+const quoteTop = (page) => page.evaluate(() => document.querySelector("[data-read]").getBoundingClientRect().top + window.scrollY);
+/** Scroll so the quote's top sits at `frac` of the viewport height. */
+const placeQuote = async (page, top, h, frac) => scrollToY(page, top - h * frac);
+
+/** Scroll distance from the first word starting to read to the last word fully read. */
+async function travel(page, h, settle) {
+  const top = await quoteTop(page);
+  let start = null;
+  let end = null;
+  for (let frac = 0.95; frac >= 0; frac -= 0.025) {
+    await placeQuote(page, top, h, frac);
+    await wait(settle);
+    const r = await reading(page);
+    if (start === null && r.words.some((w) => w.o > 0.56)) start = top - h * frac;
+    if (end === null && readCount(r) === r.words.length) {
+      end = top - h * frac;
+      break;
+    }
+  }
+  return start !== null && end !== null ? Math.round(end - start) : null;
+}
+
+async function aboutText(browser, base) {
+  const { splitLead } = await import("../src/lib/text.ts");
+  const { profile } = await import("../src/data/profile.ts");
+  const cases = [
+    ["Built with React.js and Next.js. Then v2.1 shipped.", "Built with React.js and Next.js."],
+    ["Uses tools, e.g. Expo and EAS. Ships weekly.", "Uses tools, e.g. Expo and EAS."],
+    ["Ranked No. 5 nationally. Then more.", "Ranked No. 5 nationally."],
+    ["Mentored by J. Smith for a year. Then left.", "Mentored by J. Smith for a year."],
+    ["One sentence only.", "One sentence only."],
+  ];
+  check("about: splitLead ignores periods in abbreviations, initials, numbers and versions", cases.every(([t, lead]) => splitLead(t)[0] === lead), cases.map(([t]) => splitLead(t)[0]).join(" | "));
+
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: 900 } });
+  const dom = await page.evaluate(() => ({
+    quote: [...document.querySelectorAll("[data-read-word]")].map((w) => w.textContent).join(" "),
+    quoteText: document.querySelector("[data-read]").textContent,
+    bio: document.querySelector("[data-bio]")?.textContent ?? "",
+    learning: [...document.querySelectorAll("[data-fact='credentials'] [data-type-line]")].map((l) => ({ text: l.textContent, color: getComputedStyle(l).color })),
+  }));
+  check("about: quote + bio column reproduce profile.bio exactly (whitespace normalised)", norm(`${dom.quote} ${dom.bio}`) === norm(profile.bio), `${norm(dom.quote).length} + ${norm(dom.bio).length} chars`);
+  check("about: quote is the bio's first sentence, not repeated in the column", norm(dom.quoteText) === norm(splitLead(profile.bio)[0]) && !dom.bio.includes(dom.quote));
+  const learn = dom.learning.find((l) => /react native/i.test(l.text));
+  const learnRgb = learn ? learn.color.match(/[\d.]+/g).slice(0, 3).map(Number) : [0, 0, 0];
+  const learnRatio = contrast(learnRgb, BG);
+  check("about: muted learning line is at least 4.5:1 on #090909", learnRatio >= 4.5, `${learn?.color} = ${learnRatio.toFixed(2)}:1`);
+  check("about: React Native course labelled as learning, never as a certificate", !!learn && /learning/i.test(learn.text) && !/certificate/i.test(learn.text), learn?.text);
+  const strokes = [];
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await wait(200);
+    strokes.push(await page.evaluate(() => getComputedStyle(document.querySelector("[data-numeral]")).webkitTextStrokeWidth));
+  }
+  check("about: numeral outline is 2px on desktop, 1.5px on phones", strokes[0] === "2px" && strokes[1] === "1.5px", strokes.join(" / "));
+  await context.close();
+}
+
+async function aboutDesktop(browser, base) {
+  const h = 900;
+  const { context, page } = await open(browser, base, { viewport: { width: 1440, height: h } });
+  const top = await quoteTop(page);
+  const lineCount = await page.evaluate(() => new Set([...document.querySelectorAll("[data-read-word]")].map((e) => Math.round(e.getBoundingClientRect().top))).size);
+  check("about 1440: quote sets in at most 4 lines", lineCount <= 4, `${lineCount} lines`);
+
+  for (let y = top - 2 * h; y < top - h; y += h / 3) {
+    await scrollToY(page, y);
+    await wait(100);
+  }
+  const before = await reading(page);
+  check("about 1440: before the scrub, every word is unread and lines wait to type", readCount(before) === 0 && before.lines.every((l) => l.visible && clipHidden(l.clip)), `${readCount(before)} read`);
+  const worst = Math.min(...before.words.map((w) => contrast(blended(w), BG)));
+  check("about: unread words stay ≥ 4.5:1 on #090909", worst >= 4.5, `${worst.toFixed(2)}:1`);
+
+  await placeQuote(page, top, h, 0.5);
+  await wait(900);
+  const mid = await reading(page);
+  const ops = mid.words.map((w) => w.o);
+  const ordered = ops.every((o, i) => i === 0 || o <= ops[i - 1] + 0.001);
+  check("about 1440: mid-scrub, words read one by one in order (a read prefix, the rest unread)", readCount(mid) > 0 && readCount(mid) < ops.length && ordered, `${readCount(mid)}/${ops.length}`);
+  check("about 1440: in normal flow (no pinning)", !mid.pinned);
+
+  await placeQuote(page, top, h, 0.82);
+  await wait(900);
+  check("about 1440: scrolling back un-reads the words (scrubbed, not one-shot)", readCount(await reading(page)) === 0);
+
+  // End of the read-through: lines type in one at a time.
+  await placeQuote(page, top, h, 0.15);
+  const firstDone = [];
+  const t0 = Date.now();
+  let lastSample;
+  while (Date.now() - t0 < 6000) {
+    lastSample = await reading(page);
+    lastSample.lines.forEach((l, i) => {
+      if (firstDone[i] === undefined && clipFull(l.clip)) firstDone[i] = Date.now() - t0;
+    });
+    if (firstDone.filter((x) => x !== undefined).length === lastSample.lines.length) break;
+    await wait(20);
+  }
+  const all = readCount(lastSample) === lastSample.words.length;
+  const sequential = firstDone.length === lastSample.lines.length && firstDone.every((t, i) => t !== undefined && (i === 0 || t >= firstDone[i - 1]));
+  check("about 1440: read-through ends with every word full text", all);
+  check("about 1440: fact-sheet lines then type in, one at a time, in order", sequential && firstDone.at(-1) > firstDone[0], firstDone.join(", ") + "ms");
+  check("about 1440: numeral revealed", clipFull(lastSample.numeralClip), lastSample.numeralClip);
+  check("about 1440: caret sits after the last word, aria-hidden, blinking", lastSample.caret.hidden && lastSample.caret.afterLast && lastSample.caret.animation === "caret-blink" && lastSample.caret.iterations === "infinite", JSON.stringify(lastSample.caret));
+  check("about 1440: no horizontal overflow", (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await placeQuote(page, top, h, 1.2);
+  await wait(900);
+  const desktopTravel = await travel(page, h, 700);
+  info("about 1440: read-through travel", `${desktopTravel}px`);
+  await context.close();
+  return desktopTravel;
+}
+
+async function aboutTouch(browser, base, viewport, desktopTravel) {
+  const tag = `about ${viewport.width} touch`;
+  const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
+  const top = await quoteTop(page);
+  for (let y = top - 2 * viewport.height; y < top - viewport.height; y += viewport.height / 3) {
+    await scrollToY(page, y);
+    await wait(100);
+  }
+  const t = await travel(page, viewport.height, 120);
+  check(`${tag}: read-through scrubs on touch, with shorter travel than desktop`, t !== null && desktopTravel !== null && t < desktopTravel, `${t}px vs ${desktopTravel}px`);
+  const order = await page.evaluate(() => {
+    const y = (s) => document.querySelector(s).getBoundingClientRect().top;
+    return y("[data-read]") < y("[data-bio]") && y("[data-bio]") < y("[data-numeral]") && y("[data-numeral]") < y("[data-fact='location']");
+  });
+  check(`${tag}: phone reading order is quote, bio, numeral, facts`, order);
+  const sheetTop = await page.evaluate(() => document.querySelector("[data-sheet]").getBoundingClientRect().top + window.scrollY);
+  await scrollToY(page, sheetTop - viewport.height * 0.4);
+  await wait(4000);
+  const r = await reading(page);
+  check(`${tag}: every word read and every line typed`, readCount(r) === r.words.length && r.lines.every((l) => clipFull(l.clip)));
+  check(`${tag}: no horizontal overflow`, (await overflowX(page)) <= 0, `${await overflowX(page)}px`);
+  await context.close();
+}
+
+async function aboutStatic(browser, base, label, options) {
+  const { context, page } = await open(browser, base, options, options.javaScriptEnabled === false ? "main" : undefined);
+  const top = await quoteTop(page);
+  const h = options.viewport.height;
+  let allFull = true;
+  for (const frac of [1.2, 0.8, 0.5, 0.2, -0.3]) {
+    await placeQuote(page, top, h, frac);
+    await wait(150);
+    const r = await reading(page);
+    if (!r.words.every((w) => w.o === 1) || !r.lines.every((l) => l.visible && (l.clip === "none" || clipFull(l.clip)))) allFull = false;
+  }
+  const r = await reading(page);
+  check(`about ${label}: every word full text and every line visible at every scroll position`, allFull);
+  if (options.reducedMotion === "reduce") check(`about ${label}: caret static and visible`, r.caret.duration < 0.01 && r.caret.opacity === 1, JSON.stringify(r.caret));
+  await context.close();
+}
+
 /** Where the primary hero button sits in the first viewport. */
 async function fold(browser, base, viewport, required) {
   const { context, page } = await open(browser, base, { viewport, hasTouch: true, isMobile: true });
@@ -733,6 +936,13 @@ await withProdServer(3100, async (base) => {
     await expertiseSeparators(browser, base, { width: 1440, height: 900 }, false);
     await expertiseSeparators(browser, base, { width: 768, height: 1024 }, true);
     await expertiseSeparators(browser, base, { width: 390, height: 844 }, true);
+    await aboutText(browser, base);
+    const desktopTravel = await aboutDesktop(browser, base);
+    await aboutTouch(browser, base, { width: 390, height: 844 }, desktopTravel);
+    await aboutTouch(browser, base, { width: 375, height: 812 }, desktopTravel);
+    await aboutStatic(browser, base, "reduced 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+    await aboutStatic(browser, base, "reduced 390", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, reducedMotion: "reduce" });
+    await aboutStatic(browser, base, "no JS", { viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
     await cursorDesktop(browser, base);
     await cursorAbsent(browser, base, "reduced motion 1440", { viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
     await cursorAbsent(browser, base, "touch 390", { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
